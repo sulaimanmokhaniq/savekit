@@ -66,7 +66,24 @@ lib/
   features/cookies/
     domain/platform_account.dart              Instagram, X, TikTok, LinkedIn logins
     data/cookie_export_service.dart           WebView cookies -> Netscape cookies.txt
-  features/vault/                             completed media (Phase 4)
+  features/vault/presentation/                vault grid/list and the media viewer
+  app/                                        MaterialApp and the four-tab shell
+  core/theme/, core/widgets/                  dark theme and shared widgets
+```
+
+Each feature also has a `presentation/` folder with its screens: Home and the format picker
+(extractor), Queue (downloader), Settings and the login WebView (cookies).
+
+## Testing
+
+```bash
+flutter test
+```
+
+To also render a PNG of every screen into `test/screenshots/` for design review:
+
+```bash
+SAVEKIT_SCREENSHOTS=1 flutter test test/app_test.dart --update-goldens
 ```
 
 ## Building
