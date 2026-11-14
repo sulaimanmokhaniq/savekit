@@ -8,6 +8,7 @@ third-party API: extraction, multi-connection downloading and stream merging all
 | Layer | What it does |
 | --- | --- |
 | Embedded engine | `youtubedl-android` bundles Python + yt-dlp, FFmpeg and aria2c as native libraries. Kotlin (`android/app/src/main/kotlin/com/savekit/app`) exposes them to Flutter. |
+| Photo engine | gallery-dl runs on the same embedded Python for photo posts and carousels (Instagram, X, TikTok, Snapchat and more). Its bundle lives in `android/app/src/main/assets/gallerydl`; rebuild it with `tool/build_gallery_dl_bundle.sh`. |
 | Cookie manager | An in-app WebView login exports session cookies to a Netscape `cookies.txt`, passed to yt-dlp for content that needs an account. |
 
 ### Native bridge
@@ -16,11 +17,11 @@ third-party API: extraction, multi-connection downloading and stream merging all
 
 | Method | Arguments | Returns |
 | --- | --- | --- |
-| `initEngine` | none | `{initialized, version}` |
+| `initEngine` | none | `{initialized, version, galleryVersion}` |
 | `getEngineVersion` | none | yt-dlp version string |
-| `updateEngine` | none | `{status, updated, version}` (nightly yt-dlp channel) |
-| `getMediaInfo` | `url`, `cookiesFilePath?` | metadata + `videoOptions`, `noWatermarkOption`, `audioOptions`, `formats` |
-| `startDownload` | `taskId`, `url`, `formatSelection`, `outputDir`, `cookiesFilePath?`, `extractAudio`, `formatSort?`, `audioFormat?` | `true` once queued |
+| `updateEngine` | none | `{status, updated, version, galleryUpdated, galleryVersion, galleryError}` (nightly yt-dlp, latest gallery-dl) |
+| `getMediaInfo` | `url`, `cookiesFilePath?` | metadata + `videoOptions`, `noWatermarkOption`, `audioOptions`, `galleryOption`, `galleryItems`, `formats` |
+| `startDownload` | `taskId`, `url`, `formatSelection`, `outputDir`, `cookiesFilePath?`, `extractAudio`, `formatSort?`, `audioFormat?`, `engine?` (`ytdlp` \| `gallerydl`), `itemCount?` | `true` once queued |
 | `cancelDownload` | `taskId` | whether a process was killed |
 
 `EventChannel` `com.app.downloader/progress` emits
@@ -35,6 +36,7 @@ android/app/src/main/kotlin/com/savekit/app/
   MainActivity.kt        channel wiring
   DownloadEngine.kt      yt-dlp / aria2c / FFmpeg execution and progress
   MediaInfoParser.kt     yt-dlp JSON -> format options
+  GalleryEngine.kt       gallery-dl: photo posts, carousels, self-update
 lib/
   core/                  theme, native service, shared utilities
   features/extractor/    URL -> media info and format picker

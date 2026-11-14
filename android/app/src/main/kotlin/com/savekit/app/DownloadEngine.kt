@@ -20,9 +20,10 @@ import java.util.concurrent.Executors
 import java.util.regex.Pattern
 
 /**
- * The on-device extraction engine: embedded yt-dlp for extraction, aria2c for multi-connection
- * downloading and FFmpeg for merging. Nothing leaves the device except the requests yt-dlp makes
- * to the media sites themselves (and to GitHub when the user updates yt-dlp).
+ * The on-device extraction engine: embedded yt-dlp for video and audio, aria2c for
+ * multi-connection downloading, FFmpeg for merging, and gallery-dl ([GalleryEngine]) for photo
+ * posts. Nothing leaves the device except the requests the extractors make to the media sites
+ * themselves (and to GitHub / PyPI when the user updates them).
  *
  * It is a process-wide singleton so running downloads survive the activity being recreated.
  * Progress events are maps:
@@ -31,7 +32,7 @@ import java.util.regex.Pattern
  * taskId           String
  * status           "starting" | "downloading" | "processing" | "completed" | "failed" | "canceled"
  * progressPercent  Double, 0..100 across all streams of the task
- * speed            String, e.g. "3.2MiB/s" (empty when unknown)
+ * speed            String, e.g. "3.2MiB/s", or "2/5 files" for photo posts (empty when unknown)
  * eta              Int seconds, -1 when unknown
  * filePath         String, on "completed"
  * filePaths        List<String>, on "completed" (several for multi-item posts)
@@ -50,7 +51,14 @@ object DownloadEngine {
         val cookiesFilePath: String?,
         val extractAudio: Boolean,
         val audioFormat: String,
+        /** [ENGINE_YTDLP] or [ENGINE_GALLERY]. */
+        val engine: String,
+        /** Files expected from a photo post, for its progress percentage; 0 when unknown. */
+        val itemCount: Int,
     )
+
+    const val ENGINE_YTDLP = "ytdlp"
+    const val ENGINE_GALLERY = "gallerydl"
 
     private const val TAG = "SaveKitEngine"
 
@@ -144,7 +152,14 @@ object DownloadEngine {
         executor.execute {
             try {
                 ensureInitialized()
-                succeed(result, mapOf("initialized" to true, "version" to readVersion()))
+                succeed(
+                    result,
+                    mapOf(
+                        "initialized" to true,
+                        "version" to readVersion(),
+                        "galleryVersion" to GalleryEngine.version(appContext),
+                    ),
+                )
             } catch (e: Throwable) {
                 fail(result, ERROR_INIT, e)
             }
@@ -162,19 +177,33 @@ object DownloadEngine {
         }
     }
 
-    /** Pulls the newest nightly yt-dlp so extractors can be fixed without a new APK. */
+    /**
+     * Pulls the newest nightly yt-dlp and the newest gallery-dl so extractors can be fixed
+     * without a new APK. A gallery-dl failure is reported but does not fail the yt-dlp update.
+     */
     fun updateEngine(result: MethodChannel.Result) {
         executor.execute {
             try {
                 ensureInitialized()
                 val status = YoutubeDL.getInstance()
                     .updateYoutubeDL(appContext, YoutubeDL.UpdateChannel.NIGHTLY)
+                var galleryUpdated = false
+                var galleryError: String? = null
+                try {
+                    galleryUpdated = GalleryEngine.update(appContext)
+                } catch (e: Throwable) {
+                    Log.w(TAG, "gallery-dl update failed", e)
+                    galleryError = readableError(e)
+                }
                 succeed(
                     result,
                     mapOf(
                         "status" to (status?.name ?: YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE.name),
                         "updated" to (status == YoutubeDL.UpdateStatus.DONE),
                         "version" to readVersion(),
+                        "galleryUpdated" to galleryUpdated,
+                        "galleryVersion" to GalleryEngine.version(appContext),
+                        "galleryError" to galleryError,
                     ),
                 )
             } catch (e: Throwable) {
@@ -190,6 +219,7 @@ object DownloadEngine {
             YoutubeDL.getInstance().init(appContext)
             FFmpeg.getInstance().init(appContext)
             Aria2c.getInstance().init(appContext)
+            GalleryEngine.ensureReady(appContext)
             initialized = true
         }
     }
@@ -210,33 +240,150 @@ object DownloadEngine {
 
     // region extraction
 
+    /**
+     * Asks both extractors at once: yt-dlp for video and audio, gallery-dl for photos. The
+     * result carries whatever each found, so a post can offer video qualities, a photo
+     * download, or both.
+     */
     fun getMediaInfo(url: String, cookiesFilePath: String?, result: MethodChannel.Result) {
         executor.execute {
-            var cookies: File? = null
+            var videoCookies: File? = null
+            var galleryCookies: File? = null
             try {
                 ensureInitialized()
-                cookies = snapshotCookies(cookiesFilePath, "info-${System.nanoTime()}")
+                val stamp = System.nanoTime()
+                videoCookies = snapshotCookies(cookiesFilePath, "info-$stamp")
+                galleryCookies = snapshotCookies(cookiesFilePath, "gallery-$stamp")
 
-                val request = YoutubeDLRequest(url)
-                    .addOption("--dump-single-json")
-                    .addOption("--no-playlist")
-                    .addOption("--no-warnings")
-                if (cookies != null) request.addOption("--cookies", cookies.absolutePath)
-
-                val response = YoutubeDL.getInstance().execute(request, null, null)
-                val json = response.out.trim()
-                if (json.isEmpty()) {
-                    throw YoutubeDLException(
-                        response.err.ifBlank { "No media information was returned for this link." },
-                    )
+                val galleryCookiesFile = galleryCookies
+                val galleryLookup = executor.submit<GalleryEngine.Info?> {
+                    GalleryEngine.getInfo(appContext, url, galleryCookiesFile)
                 }
-                succeed(result, MediaInfoParser.parse(json, url))
+
+                var video: Map<String, Any?>? = null
+                var videoError: Throwable? = null
+                try {
+                    video = extractVideoInfo(url, videoCookies)
+                } catch (e: Throwable) {
+                    videoError = e
+                }
+
+                var gallery: GalleryEngine.Info? = null
+                var galleryError: Throwable? = null
+                try {
+                    gallery = galleryLookup.get()
+                } catch (e: Throwable) {
+                    galleryError = e.cause ?: e
+                    Log.w(TAG, "gallery-dl lookup failed", galleryError)
+                }
+
+                val info = mergeMediaInfo(url, video, gallery)
+                if (info != null) {
+                    succeed(result, info)
+                } else {
+                    fail(result, ERROR_EXTRACT, pickExtractionError(videoError, galleryError))
+                }
             } catch (e: Throwable) {
                 fail(result, ERROR_EXTRACT, e)
             } finally {
-                cookies?.delete()
+                videoCookies?.delete()
+                galleryCookies?.delete()
             }
         }
+    }
+
+    private fun extractVideoInfo(url: String, cookies: File?): Map<String, Any?> {
+        val request = YoutubeDLRequest(url)
+            .addOption("--dump-single-json")
+            .addOption("--no-playlist")
+            .addOption("--no-warnings")
+        if (cookies != null) request.addOption("--cookies", cookies.absolutePath)
+
+        val response = YoutubeDL.getInstance().execute(request, null, null)
+        val json = response.out.trim()
+        if (json.isEmpty()) {
+            throw YoutubeDLException(
+                response.err.ifBlank { "No media information was returned for this link." },
+            )
+        }
+        return MediaInfoParser.parse(json, url)
+    }
+
+    /**
+     * Combines both lookups. The photo option is offered when the post has at least one photo,
+     * or when gallery-dl is the only extractor that could read the link at all.
+     */
+    private fun mergeMediaInfo(
+        url: String,
+        video: Map<String, Any?>?,
+        gallery: GalleryEngine.Info?,
+    ): Map<String, Any?>? {
+        val offerGallery = gallery != null && (gallery.imageCount > 0 || video == null)
+        if (video == null && !offerGallery) return null
+
+        val galleryFields: Map<String, Any?> = if (gallery != null && offerGallery) {
+            val count = gallery.items.size
+            val label = when {
+                gallery.videoCount == 0 -> if (count == 1) "Photo" else "Photos ($count)"
+                else -> "All media ($count)"
+            }
+            mapOf(
+                "galleryOption" to mapOf(
+                    "id" to "gallery",
+                    "kind" to "gallery",
+                    "label" to label,
+                    "engine" to ENGINE_GALLERY,
+                    "formatSelection" to "gallery",
+                    "formatSort" to "",
+                    "extractAudio" to false,
+                    "audioFormat" to null,
+                    "ext" to gallery.items.first().extension,
+                    "height" to null,
+                    "fileSize" to null,
+                    "itemCount" to count,
+                    "imageCount" to gallery.imageCount,
+                    "videoCount" to gallery.videoCount,
+                ),
+                "galleryItems" to gallery.items.map { it.toMap() },
+            )
+        } else {
+            mapOf("galleryOption" to null, "galleryItems" to emptyList<Map<String, Any?>>())
+        }
+
+        if (video != null) return video + galleryFields
+
+        val photos = gallery!!
+        return mapOf(
+            "id" to photos.id,
+            "url" to url,
+            "webpageUrl" to url,
+            "title" to (photos.title ?: photos.uploader?.let { "Post by $it" } ?: "Untitled"),
+            "uploader" to photos.uploader,
+            "thumbnail" to photos.items.firstNotNullOfOrNull { it.thumbnail },
+            "duration" to null,
+            "platform" to photos.platform,
+            "extractor" to "gallery-dl",
+            "entryCount" to photos.items.size,
+            "videoOptions" to emptyList<Map<String, Any?>>(),
+            "noWatermarkOption" to null,
+            "audioOptions" to emptyList<Map<String, Any?>>(),
+            "formats" to emptyList<Map<String, Any?>>(),
+        ) + galleryFields
+    }
+
+    /**
+     * When nothing could be extracted, prefer gallery-dl's reason if yt-dlp only said the link
+     * has no video: for a photo post, "login required" is the useful message.
+     */
+    private fun pickExtractionError(videoError: Throwable?, galleryError: Throwable?): Throwable {
+        if (videoError == null) {
+            return galleryError ?: YoutubeDLException("No downloadable media was found.")
+        }
+        if (galleryError == null) return videoError
+        val message = videoError.message.orEmpty()
+        val noVideo = listOf("no video", "unsupported url", "no media", "no formats")
+            .any { message.contains(it, ignoreCase = true) }
+        return if (noVideo) galleryError else videoError
     }
 
     // endregion
@@ -254,12 +401,12 @@ object DownloadEngine {
         executor.execute { runDownload(request) }
     }
 
-    /** Kills the task's yt-dlp process; the terminal "canceled" event follows on the stream. */
+    /** Kills the task's extractor process; the terminal "canceled" event follows on the stream. */
     fun cancelDownload(taskId: String): Boolean {
         if (!activeTasks.contains(taskId)) return false
         canceledTasks.add(taskId)
         return try {
-            YoutubeDL.getInstance().destroyProcessById(taskId)
+            GalleryEngine.cancel(taskId) || YoutubeDL.getInstance().destroyProcessById(taskId)
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to destroy process $taskId", e)
             false
@@ -282,6 +429,12 @@ object DownloadEngine {
             }
             pathFile.delete()
             cookies = snapshotCookies(request.cookiesFilePath, "task-$taskId")
+
+            if (request.engine == ENGINE_GALLERY) {
+                val files = downloadGallery(request, outputDir, cookies)
+                emit(completedEvent(taskId, files))
+                return
+            }
 
             val ytRequest = YoutubeDLRequest(request.url)
                 .addOption("--no-playlist")
@@ -326,15 +479,11 @@ object DownloadEngine {
             if (files.isEmpty()) {
                 throw YoutubeDLException("The download finished but no output file was produced.")
             }
-            emit(
-                progressEvent(taskId, STATUS_COMPLETED, 100.0, "", 0) + mapOf(
-                    "filePath" to files.first().absolutePath,
-                    "filePaths" to files.map { it.absolutePath },
-                    "fileSize" to files.sumOf { it.length() },
-                ),
-            )
+            emit(completedEvent(taskId, files))
         } catch (e: Throwable) {
-            if (e is YoutubeDL.CanceledException || canceledTasks.contains(taskId)) {
+            if (e is YoutubeDL.CanceledException || e is GalleryEngine.CanceledException ||
+                canceledTasks.contains(taskId)
+            ) {
                 emit(progressEvent(taskId, STATUS_CANCELED, progress.lastPercent, "", -1))
             } else {
                 Log.e(TAG, "Download $taskId failed", e)
@@ -350,6 +499,24 @@ object DownloadEngine {
             canceledTasks.remove(taskId)
         }
     }
+
+    /** Photo posts: gallery-dl saves the files one by one, so progress is counted per file. */
+    private fun downloadGallery(request: DownloadRequest, outputDir: File, cookies: File?): List<File> {
+        val taskId = request.taskId
+        val total = request.itemCount
+        return GalleryEngine.download(appContext, taskId, request.url, outputDir, cookies) { finished ->
+            val percent = if (total > 0) (finished * 100.0 / total).coerceIn(0.0, 99.0) else 0.0
+            val label = if (total > 0) "$finished/$total files" else "$finished files"
+            emit(progressEvent(taskId, STATUS_DOWNLOADING, percent, label, -1))
+        }
+    }
+
+    private fun completedEvent(taskId: String, files: List<File>): Map<String, Any?> =
+        progressEvent(taskId, STATUS_COMPLETED, 100.0, "", 0) + mapOf(
+            "filePath" to files.first().absolutePath,
+            "filePaths" to files.map { it.absolutePath },
+            "fileSize" to files.sumOf { it.length() },
+        )
 
     private fun readFinishedFiles(pathFile: File): List<File> {
         if (!pathFile.exists()) return emptyList()

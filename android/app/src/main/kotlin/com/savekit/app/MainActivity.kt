@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
  *  - updateEngine()
  *  - getMediaInfo(url, cookiesFilePath?)
  *  - startDownload(taskId, url, formatSelection, outputDir, cookiesFilePath?, extractAudio,
- *                  formatSort?, audioFormat?)
+ *                  formatSort?, audioFormat?, engine?, itemCount?)
  *  - cancelDownload(taskId)
  *
  * EventChannel `com.app.downloader/progress` streams maps of
@@ -108,6 +108,9 @@ class MainActivity : FlutterActivity() {
                         extractAudio = call.argument<Boolean>("extractAudio") ?: false,
                         audioFormat = call.argument<String>("audioFormat")?.trim()
                             ?.ifEmpty { null } ?: "mp3",
+                        engine = call.argument<String>("engine")?.trim()
+                            ?.ifEmpty { null } ?: DownloadEngine.ENGINE_YTDLP,
+                        itemCount = call.argument<Number>("itemCount")?.toInt() ?: 0,
                     ),
                     result = result,
                 )
