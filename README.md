@@ -9,6 +9,7 @@ third-party API: extraction, multi-connection downloading and stream merging all
 | --- | --- |
 | Embedded engine | `youtubedl-android` bundles Python + yt-dlp, FFmpeg and aria2c as native libraries. Kotlin (`android/app/src/main/kotlin/com/savekit/app`) exposes them to Flutter. |
 | Photo engine | gallery-dl runs on the same embedded Python for photo posts and carousels (Instagram, X, TikTok, Snapchat and more). Its bundle lives in `android/app/src/main/assets/gallerydl`; rebuild it with `tool/build_gallery_dl_bundle.sh`. |
+| Page reader | For sites neither extractor handles (LinkedIn photos, and as a general fallback), the post is opened in a hidden WebView sharing the login sessions and its photos are read from the page, then downloaded over HTTP. |
 | Cookie manager | An in-app WebView login exports session cookies to a Netscape `cookies.txt`, passed to yt-dlp for content that needs an account. |
 
 ### Native bridge
@@ -38,11 +39,21 @@ android/app/src/main/kotlin/com/savekit/app/
   MediaInfoParser.kt     yt-dlp JSON -> format options
   GalleryEngine.kt       gallery-dl: photo posts, carousels, self-update
 lib/
-  core/                  theme, native service, shared utilities
-  features/extractor/    URL -> media info and format picker
-  features/downloader/   queue and active downloads
-  features/vault/        completed media
-  features/cookies/      platform logins and cookies.txt export
+  core/
+    native/youtube_dl_native_service.dart     Dart side of the Kotlin bridge
+    platform/media_platform.dart              known platforms, link detection
+  features/extractor/
+    domain/                                   MediaInfo, MediaFormat
+    data/media_extractor.dart                 native engine first, WebView fallback
+    data/web_page_extractor.dart              reads photos from a page in a hidden WebView
+    data/web_extraction_rules.dart            per-site rules (assets/web_rules.json), updatable
+  features/downloader/
+    domain/                                   DownloadTask, DownloadProgress
+    data/direct_download_service.dart         HTTP download of WebView-found photos
+  features/cookies/
+    domain/platform_account.dart              Instagram, X, TikTok, LinkedIn logins
+    data/cookie_export_service.dart           WebView cookies -> Netscape cookies.txt
+  features/vault/                             completed media (Phase 4)
 ```
 
 ## Building

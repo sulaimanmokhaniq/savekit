@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "default": {
+    "allow": [],
+    "deny": [
+      "sprite", "favicon", "emoji", "/icons?/", "[-_/]logo", "avatar",
+      "\\.svg(\\?|$)", "pixel", "tracking", "placeholder"
+    ],
+    "minDimension": 400,
+    "settleMs": 2500,
+    "userAgent": "mobile"
+  },
+  "sites": [
+    {
+      "hostSuffix": "linkedin.com",
+      "allow": ["^https://media\\.licdn\\.com/dms/(image|document)/"],
+      "deny": [
+        "profile-displayphoto", "profile-framedphoto", "profile-displaybackgroundimage",
+        "company-logo", "company-background", "school-logo", "group-logo",
+        "shrink_100_100", "shrink_48_48", "ghost", "articleshare-shrink_160"
+      ],
+      "dedupeKey": "/dms/(?:image|document)/(?:v\\d/)?([^/]+)/",
+      "minDimension": 300,
+      "settleMs": 3500,
+      "userAgent": "desktop",
+      "loginWall": ["/login", "/authwall", "/uas/login", "/checkpoint"],
+      "loginHint": "Log in to LinkedIn under Settings → Platform Accounts to save this post."
+    },
+    {
+      "hostSuffix": "snapchat.com",
+      "allow": ["sc-cdn\\.net/", "snapchat\\.com/.*\\.(jpe?g|png|webp)"],
+      "deny": ["bitmoji", "avatar", "[-_/]logo", "sprite", "icon", "\\.svg(\\?|$)"],
+      "minDimension": 300,
+      "settleMs": 3000,
+      "userAgent": "desktop"
+    }
+  ]
+}
