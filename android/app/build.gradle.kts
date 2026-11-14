@@ -9,7 +9,8 @@ val youtubedlAndroidVersion = "0.18.1"
 
 android {
     namespace = "com.savekit.app"
-    compileSdk = flutter.compileSdkVersion
+    // Some plugins need a newer API level than the Flutter default.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
