@@ -1,0 +1,41 @@
+name: savekit
+description: "On-device media downloader for Android, powered by yt-dlp, FFmpeg and aria2c."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.1.0
+
+  # State management
+  flutter_riverpod: ^3.5.0
+
+  # Platform account logins and cookie export
+  flutter_inappwebview: ^6.1.5
+
+  # Android share target, permissions and gallery export
+  receive_sharing_intent: ^1.9.0
+  permission_handler: ^13.0.2
+  gal: ^3.0.0
+  share_plus: ^13.3.1
+
+  # Local persistence for the download queue and history
+  hive_ce: ^2.23.3
+  hive_ce_flutter: ^2.5.0
+  path_provider: ^2.1.6
+  path: ^1.9.1
+
+  # Vault playback
+  video_player: ^2.14.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

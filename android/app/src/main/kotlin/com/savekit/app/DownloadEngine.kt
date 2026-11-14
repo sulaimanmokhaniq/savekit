@@ -1,0 +1,478 @@
+package com.savekit.app
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
+import com.yausername.aria2c.Aria2c
+import com.yausername.ffmpeg.FFmpeg
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLException
+import com.yausername.youtubedl_android.YoutubeDLRequest
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.regex.Pattern
+
+/**
+ * The on-device extraction engine: embedded yt-dlp for extraction, aria2c for multi-connection
+ * downloading and FFmpeg for merging. Nothing leaves the device except the requests yt-dlp makes
+ * to the media sites themselves (and to GitHub when the user updates yt-dlp).
+ *
+ * It is a process-wide singleton so running downloads survive the activity being recreated.
+ * Progress events are maps:
+ *
+ * ```
+ * taskId           String
+ * status           "starting" | "downloading" | "processing" | "completed" | "failed" | "canceled"
+ * progressPercent  Double, 0..100 across all streams of the task
+ * speed            String, e.g. "3.2MiB/s" (empty when unknown)
+ * eta              Int seconds, -1 when unknown
+ * filePath         String, on "completed"
+ * filePaths        List<String>, on "completed" (several for multi-item posts)
+ * fileSize         Long bytes, on "completed"
+ * error            String, on "failed"
+ * ```
+ */
+object DownloadEngine {
+
+    data class DownloadRequest(
+        val taskId: String,
+        val url: String,
+        val formatSelection: String,
+        val formatSort: String,
+        val outputDir: String,
+        val cookiesFilePath: String?,
+        val extractAudio: Boolean,
+        val audioFormat: String,
+    )
+
+    private const val TAG = "SaveKitEngine"
+
+    private const val ERROR_NOT_READY = "ENGINE_NOT_READY"
+    private const val ERROR_INIT = "ENGINE_INIT_FAILED"
+    private const val ERROR_UPDATE = "ENGINE_UPDATE_FAILED"
+    private const val ERROR_EXTRACT = "EXTRACTION_FAILED"
+    private const val ERROR_DOWNLOAD = "DOWNLOAD_FAILED"
+
+    private const val STATUS_STARTING = "starting"
+    private const val STATUS_DOWNLOADING = "downloading"
+    private const val STATUS_PROCESSING = "processing"
+    private const val STATUS_COMPLETED = "completed"
+    private const val STATUS_FAILED = "failed"
+    private const val STATUS_CANCELED = "canceled"
+
+    /** The library switches on aria2c when the command names its bundled binary. */
+    private const val ARIA2C_BINARY = "libaria2c.so"
+    private const val CONNECTIONS = 8
+    private const val PROGRESS_INTERVAL_MS = 300L
+
+    private val YTDLP_SPEED = Pattern.compile("\\bat\\s+(\\S+/s)")
+    private val ARIA2C_SPEED = Pattern.compile("\\bDL:([0-9.]+[A-Za-z]+)")
+    private val FORMAT_COUNT = Pattern.compile("Downloading \\d+ format\\(s\\):\\s*(\\S+)")
+    private val POST_PROCESSORS = listOf(
+        "[Merger]", "[ExtractAudio]", "[VideoConvertor]", "[VideoRemuxer]",
+        "[Fixup", "[Metadata]", "[MoveFiles]", "[EmbedThumbnail]",
+    )
+
+    private lateinit var appContext: Context
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val executor: ExecutorService = Executors.newCachedThreadPool()
+
+    private val initLock = Any()
+    @Volatile
+    private var initialized = false
+
+    private var progressSink: EventChannel.EventSink? = null
+    private val activeTasks: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val canceledTasks: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Latest event per task, replayed when Flutter (re)subscribes after a restart. */
+    private val latestEvents: MutableMap<String, Map<String, Any?>> =
+        Collections.synchronizedMap(LinkedHashMap())
+
+    fun attach(context: Context) {
+        if (!::appContext.isInitialized) appContext = context.applicationContext
+    }
+
+    // region channel plumbing
+
+    /** Called on the main thread by the EventChannel stream handler. */
+    fun setProgressSink(sink: EventChannel.EventSink?) {
+        progressSink = sink
+        if (sink == null) return
+        val pending = synchronized(latestEvents) { latestEvents.values.toList() }
+        pending.forEach { deliver(it) }
+    }
+
+    private fun emit(event: Map<String, Any?>) {
+        latestEvents[event["taskId"] as String] = event
+        mainHandler.post { deliver(event) }
+    }
+
+    private fun deliver(event: Map<String, Any?>) {
+        val sink = progressSink ?: return
+        sink.success(event)
+        val status = event["status"]
+        if (status == STATUS_COMPLETED || status == STATUS_FAILED || status == STATUS_CANCELED) {
+            // A terminal event has reached Flutter, which now owns the task's final state.
+            latestEvents.remove(event["taskId"] as String)
+        }
+    }
+
+    private fun succeed(result: MethodChannel.Result, value: Any?) {
+        mainHandler.post { result.success(value) }
+    }
+
+    private fun fail(result: MethodChannel.Result, code: String, error: Throwable) {
+        Log.e(TAG, code, error)
+        val message = readableError(error)
+        mainHandler.post { result.error(code, message, null) }
+    }
+
+    // endregion
+
+    // region engine lifecycle
+
+    /** Unpacks Python, yt-dlp, FFmpeg and aria2c on first run; cheap afterwards. */
+    fun initEngine(result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                ensureInitialized()
+                succeed(result, mapOf("initialized" to true, "version" to readVersion()))
+            } catch (e: Throwable) {
+                fail(result, ERROR_INIT, e)
+            }
+        }
+    }
+
+    fun getEngineVersion(result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                ensureInitialized()
+                succeed(result, readVersion())
+            } catch (e: Throwable) {
+                fail(result, ERROR_NOT_READY, e)
+            }
+        }
+    }
+
+    /** Pulls the newest nightly yt-dlp so extractors can be fixed without a new APK. */
+    fun updateEngine(result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                ensureInitialized()
+                val status = YoutubeDL.getInstance()
+                    .updateYoutubeDL(appContext, YoutubeDL.UpdateChannel.NIGHTLY)
+                succeed(
+                    result,
+                    mapOf(
+                        "status" to (status?.name ?: YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE.name),
+                        "updated" to (status == YoutubeDL.UpdateStatus.DONE),
+                        "version" to readVersion(),
+                    ),
+                )
+            } catch (e: Throwable) {
+                fail(result, ERROR_UPDATE, e)
+            }
+        }
+    }
+
+    private fun ensureInitialized() {
+        if (initialized) return
+        synchronized(initLock) {
+            if (initialized) return
+            YoutubeDL.getInstance().init(appContext)
+            FFmpeg.getInstance().init(appContext)
+            Aria2c.getInstance().init(appContext)
+            initialized = true
+        }
+    }
+
+    /** Asks the yt-dlp actually on disk, so it is right both before and after an update. */
+    private fun readVersion(): String {
+        return try {
+            val request = YoutubeDLRequest(emptyList()).addOption("--version")
+            YoutubeDL.getInstance().execute(request, null, null).out.trim()
+                .ifEmpty { YoutubeDL.getInstance().versionName(appContext).orEmpty() }
+        } catch (e: Throwable) {
+            Log.w(TAG, "Could not read the yt-dlp version", e)
+            YoutubeDL.getInstance().versionName(appContext).orEmpty()
+        }
+    }
+
+    // endregion
+
+    // region extraction
+
+    fun getMediaInfo(url: String, cookiesFilePath: String?, result: MethodChannel.Result) {
+        executor.execute {
+            var cookies: File? = null
+            try {
+                ensureInitialized()
+                cookies = snapshotCookies(cookiesFilePath, "info-${System.nanoTime()}")
+
+                val request = YoutubeDLRequest(url)
+                    .addOption("--dump-single-json")
+                    .addOption("--no-playlist")
+                    .addOption("--no-warnings")
+                if (cookies != null) request.addOption("--cookies", cookies.absolutePath)
+
+                val response = YoutubeDL.getInstance().execute(request, null, null)
+                val json = response.out.trim()
+                if (json.isEmpty()) {
+                    throw YoutubeDLException(
+                        response.err.ifBlank { "No media information was returned for this link." },
+                    )
+                }
+                succeed(result, MediaInfoParser.parse(json, url))
+            } catch (e: Throwable) {
+                fail(result, ERROR_EXTRACT, e)
+            } finally {
+                cookies?.delete()
+            }
+        }
+    }
+
+    // endregion
+
+    // region downloading
+
+    fun startDownload(request: DownloadRequest, result: MethodChannel.Result) {
+        if (!activeTasks.add(request.taskId)) {
+            result.error(ERROR_DOWNLOAD, "Task ${request.taskId} is already running.", null)
+            return
+        }
+        canceledTasks.remove(request.taskId)
+        emit(progressEvent(request.taskId, STATUS_STARTING, 0.0, "", -1))
+        result.success(true)
+        executor.execute { runDownload(request) }
+    }
+
+    /** Kills the task's yt-dlp process; the terminal "canceled" event follows on the stream. */
+    fun cancelDownload(taskId: String): Boolean {
+        if (!activeTasks.contains(taskId)) return false
+        canceledTasks.add(taskId)
+        return try {
+            YoutubeDL.getInstance().destroyProcessById(taskId)
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to destroy process $taskId", e)
+            false
+        }
+    }
+
+    private fun runDownload(request: DownloadRequest) {
+        val taskId = request.taskId
+        val pathFile = File(appContext.cacheDir, "savekit-$taskId.paths")
+        var cookies: File? = null
+        val progress = ProgressTracker(taskId)
+
+        try {
+            ensureInitialized()
+            if (canceledTasks.contains(taskId)) throw YoutubeDL.CanceledException()
+
+            val outputDir = File(request.outputDir)
+            if (!outputDir.exists() && !outputDir.mkdirs()) {
+                throw YoutubeDLException("Cannot create the download folder ${outputDir.path}.")
+            }
+            pathFile.delete()
+            cookies = snapshotCookies(request.cookiesFilePath, "task-$taskId")
+
+            val ytRequest = YoutubeDLRequest(request.url)
+                .addOption("--no-playlist")
+                .addOption("--newline")
+                .addOption("--no-mtime")
+                .addOption("--windows-filenames")
+                .addOption("-f", request.formatSelection)
+                .addOption("-o", File(outputDir, "%(title).120B [%(id)s].%(ext)s").absolutePath)
+                // Multi-connection downloading: aria2c for direct files, parallel fragments
+                // for the HLS/DASH streams yt-dlp fetches itself.
+                .addOption("--downloader", ARIA2C_BINARY)
+                .addOption(
+                    "--external-downloader-args",
+                    "aria2c:--max-connection-per-server=$CONNECTIONS --split=$CONNECTIONS " +
+                        "--min-split-size=1M",
+                )
+                .addOption("-N", CONNECTIONS)
+                // Where each finished file ended up, written once post-processing is done.
+                .addCommands(
+                    listOf("--print-to-file", "after_move:filepath", pathFile.absolutePath),
+                )
+
+            if (request.formatSort.isNotEmpty()) ytRequest.addOption("-S", request.formatSort)
+            if (request.extractAudio) {
+                ytRequest
+                    .addOption("-x")
+                    .addOption("--audio-format", request.audioFormat)
+                    .addOption("--audio-quality", "0")
+            } else {
+                // FFmpeg merges the separate DASH video and audio streams into one MP4.
+                ytRequest.addOption("--merge-output-format", "mp4")
+            }
+            if (cookies != null) ytRequest.addOption("--cookies", cookies.absolutePath)
+
+            YoutubeDL.getInstance().execute(ytRequest, taskId) { percent, etaSeconds, line ->
+                progress.onOutput(percent, etaSeconds, line)
+            }
+
+            if (canceledTasks.contains(taskId)) throw YoutubeDL.CanceledException()
+
+            val files = readFinishedFiles(pathFile)
+            if (files.isEmpty()) {
+                throw YoutubeDLException("The download finished but no output file was produced.")
+            }
+            emit(
+                progressEvent(taskId, STATUS_COMPLETED, 100.0, "", 0) + mapOf(
+                    "filePath" to files.first().absolutePath,
+                    "filePaths" to files.map { it.absolutePath },
+                    "fileSize" to files.sumOf { it.length() },
+                ),
+            )
+        } catch (e: Throwable) {
+            if (e is YoutubeDL.CanceledException || canceledTasks.contains(taskId)) {
+                emit(progressEvent(taskId, STATUS_CANCELED, progress.lastPercent, "", -1))
+            } else {
+                Log.e(TAG, "Download $taskId failed", e)
+                emit(
+                    progressEvent(taskId, STATUS_FAILED, progress.lastPercent, "", -1) +
+                        mapOf("error" to readableError(e)),
+                )
+            }
+        } finally {
+            pathFile.delete()
+            cookies?.delete()
+            activeTasks.remove(taskId)
+            canceledTasks.remove(taskId)
+        }
+    }
+
+    private fun readFinishedFiles(pathFile: File): List<File> {
+        if (!pathFile.exists()) return emptyList()
+        return pathFile.readLines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .map { File(it) }
+            .filter { it.exists() }
+    }
+
+    private fun progressEvent(
+        taskId: String,
+        status: String,
+        percent: Double,
+        speed: String,
+        eta: Int,
+    ): Map<String, Any?> = mapOf(
+        "taskId" to taskId,
+        "status" to status,
+        "progressPercent" to percent,
+        "speed" to speed,
+        "eta" to eta,
+    )
+
+    /**
+     * Converts yt-dlp's output into throttled progress events. A merged download fetches
+     * several streams one after another, each reporting 0..100, so the percentage is scaled
+     * across the number of streams yt-dlp announced.
+     */
+    private class ProgressTracker(private val taskId: String) {
+        private var streamCount = 1
+        private var streamIndex = 0
+        private var speed = ""
+        private var status = STATUS_STARTING
+        private var lastEmit = 0L
+
+        @Volatile
+        var lastPercent = 0.0
+            private set
+
+        fun onOutput(rawPercent: Float, etaSeconds: Long, line: String) {
+            val formatCount = FORMAT_COUNT.matcher(line)
+            if (formatCount.find()) {
+                streamCount = formatCount.group(1)!!.split('+').size.coerceAtLeast(1)
+                streamIndex = 0
+            }
+            if (line.startsWith("[download] Destination:")) {
+                streamIndex = (streamIndex + 1).coerceAtMost(streamCount)
+            }
+
+            val processing = POST_PROCESSORS.any { line.startsWith(it) }
+            val newStatus = when {
+                processing -> STATUS_PROCESSING
+                status == STATUS_PROCESSING -> STATUS_PROCESSING
+                rawPercent >= 0f -> STATUS_DOWNLOADING
+                else -> status
+            }
+
+            val ytSpeed = YTDLP_SPEED.matcher(line)
+            val ariaSpeed = ARIA2C_SPEED.matcher(line)
+            when {
+                ytSpeed.find() -> speed = ytSpeed.group(1)!!
+                ariaSpeed.find() -> speed = ariaSpeed.group(1)!! + "/s"
+            }
+
+            val percent = when {
+                newStatus == STATUS_PROCESSING -> 99.0
+                rawPercent < 0f -> lastPercent
+                else -> {
+                    val finishedStreams = (streamIndex - 1).coerceAtLeast(0)
+                    val overall = (finishedStreams * 100.0 + rawPercent) / streamCount
+                    // Never report backwards when a new stream restarts at 0%.
+                    maxOf(lastPercent, overall.coerceIn(0.0, 99.0))
+                }
+            }
+
+            val now = SystemClock.elapsedRealtime()
+            val statusChanged = newStatus != status
+            status = newStatus
+            lastPercent = percent
+            if (!statusChanged && now - lastEmit < PROGRESS_INTERVAL_MS) return
+            lastEmit = now
+
+            emit(
+                progressEvent(
+                    taskId = taskId,
+                    status = status,
+                    percent = percent,
+                    speed = if (status == STATUS_PROCESSING) "" else speed,
+                    eta = if (status == STATUS_PROCESSING) -1 else etaSeconds.toInt(),
+                ),
+            )
+        }
+    }
+
+    // endregion
+
+    // region helpers
+
+    /**
+     * yt-dlp rewrites the cookie file it is given when it exits. Each run gets a private copy
+     * so parallel tasks never corrupt the shared `cookies.txt` exported by the WebView.
+     */
+    private fun snapshotCookies(cookiesFilePath: String?, name: String): File? {
+        if (cookiesFilePath.isNullOrBlank()) return null
+        val source = File(cookiesFilePath)
+        if (!source.isFile || source.length() == 0L) return null
+        val copy = File(appContext.cacheDir, "savekit-cookies-$name.txt")
+        source.copyTo(copy, overwrite = true)
+        return copy
+    }
+
+    /** yt-dlp reports failures on stderr as `ERROR: ...`; surface that line, not the whole log. */
+    private fun readableError(error: Throwable): String {
+        val raw = error.message?.trim().orEmpty()
+        if (raw.isEmpty()) return error.javaClass.simpleName
+        val errorLine = raw.lineSequence()
+            .map { it.trim() }
+            .lastOrNull { it.startsWith("ERROR:") }
+        return (errorLine?.removePrefix("ERROR:")?.trim() ?: raw.lines().last().trim())
+            .ifEmpty { raw }
+    }
+
+    // endregion
+}
