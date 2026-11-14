@@ -1,13 +1,35 @@
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-void main() {
-  runApp(const SaveKitApp());
+import 'core/engine/engine_controller.dart';
+import 'core/providers.dart';
+import 'features/downloader/application/download_queue_controller.dart';
+import 'features/downloader/data/download_repository.dart';
+import 'features/extractor/application/incoming_link_controller.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // The queue reads its history synchronously, so storage is opened first.
+  // If it cannot be opened the app still works, without saved history.
+  DownloadRepository repository;
+  try {
+    repository = await HiveDownloadRepository.open();
+  } catch (_) {
+    repository = InMemoryDownloadRepository();
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [downloadRepositoryProvider.overrideWithValue(repository)],
+      child: const SaveKitApp(),
+    ),
+  );
 }
 
-/// Phase 1 shell: boots the native engine and reports its state, proving the
-/// Kotlin bridge, bundled binaries and yt-dlp work on the device. The real
-/// navigation shell and screens replace this in Phase 4.
+/// Temporary shell: boots the engine, the queue and the share/clipboard
+/// listeners and reports their state. The navigation shell and screens of
+/// Phase 4 replace it.
 class SaveKitApp extends StatelessWidget {
   const SaveKitApp({super.key});
 
@@ -29,76 +51,60 @@ class SaveKitApp extends StatelessWidget {
   }
 }
 
-class EngineStatusScreen extends StatefulWidget {
+class EngineStatusScreen extends ConsumerWidget {
   const EngineStatusScreen({super.key});
 
   @override
-  State<EngineStatusScreen> createState() => _EngineStatusScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final engine = ref.watch(engineControllerProvider);
+    final queued = ref.watch(downloadQueueControllerProvider).length;
+    final links = ref.watch(incomingLinkControllerProvider);
+    final incoming = links.shared ?? links.clipboard;
 
-class _EngineStatusScreenState extends State<EngineStatusScreen> {
-  static const _engine = MethodChannel('com.app.downloader/engine');
-
-  late Future<String> _version = _initEngine();
-
-  Future<String> _initEngine() async {
-    final result = await _engine.invokeMapMethod<String, dynamic>('initEngine');
-    return (result?['version'] as String?) ?? 'unknown';
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: FutureBuilder<String>(
-            future: _version,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Preparing the download engine…'),
-                  ],
-                );
-              }
-              if (snapshot.hasError) {
-                final error = snapshot.error;
-                final message = error is PlatformException
-                    ? (error.message ?? error.code)
-                    : error.toString();
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 40),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Engine failed to start\n$message',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: () => setState(() => _version = _initEngine()),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                );
-              }
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle_outline, size: 40),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Engine ready\nyt-dlp ${snapshot.data}',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              );
-            },
+          child: engine.when(
+            loading: () => const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Preparing the download engine…'),
+              ],
+            ),
+            error: (error, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 40),
+                const SizedBox(height: 16),
+                Text(
+                  'Engine failed to start\n$error',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () => ref.invalidate(engineControllerProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+            data: (state) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle_outline, size: 40),
+                const SizedBox(height: 16),
+                Text(
+                  'Engine ready\n'
+                  'yt-dlp ${state.version}\n'
+                  'gallery-dl ${state.galleryVersion}\n'
+                  '$queued saved download(s)'
+                  '${incoming == null ? '' : '\nLink received: $incoming'}',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

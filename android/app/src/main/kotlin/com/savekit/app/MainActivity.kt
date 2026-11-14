@@ -17,6 +17,9 @@ import io.flutter.plugin.common.MethodChannel
  *  - startDownload(taskId, url, formatSelection, outputDir, cookiesFilePath?, extractAudio,
  *                  formatSort?, audioFormat?, engine?, itemCount?)
  *  - cancelDownload(taskId)
+ *  - updateDownloadService(activeCount, title, text, progress)
+ *  - notifyDownloadFinished(taskId, title, success)
+ *  - exportToMediaStore(path, audio)
  *
  * EventChannel `com.app.downloader/progress` streams maps of
  * `{taskId, status, progressPercent, speed, eta, ...}`; see [DownloadEngine].
@@ -123,6 +126,40 @@ class MainActivity : FlutterActivity() {
                     return
                 }
                 result.success(DownloadEngine.cancelDownload(taskId))
+            }
+
+            "updateDownloadService" -> {
+                DownloadService.update(
+                    context = applicationContext,
+                    activeCount = call.argument<Number>("activeCount")?.toInt() ?: 0,
+                    title = call.argument<String>("title") ?: "Downloading",
+                    text = call.argument<String>("text").orEmpty(),
+                    progress = call.argument<Number>("progress")?.toInt() ?: -1,
+                )
+                result.success(null)
+            }
+
+            "notifyDownloadFinished" -> {
+                DownloadService.notifyFinished(
+                    context = applicationContext,
+                    taskId = call.argument<String>("taskId").orEmpty(),
+                    title = call.argument<String>("title").orEmpty(),
+                    success = call.argument<Boolean>("success") ?: true,
+                )
+                result.success(null)
+            }
+
+            "exportToMediaStore" -> {
+                val path = call.argument<String>("path")
+                if (path.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "exportToMediaStore requires a 'path'.", null)
+                    return
+                }
+                DownloadEngine.exportToMediaStore(
+                    path = path,
+                    audio = call.argument<Boolean>("audio") ?: false,
+                    result = result,
+                )
             }
 
             else -> result.notImplemented()

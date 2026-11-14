@@ -24,6 +24,9 @@ third-party API: extraction, multi-connection downloading and stream merging all
 | `getMediaInfo` | `url`, `cookiesFilePath?` | metadata + `videoOptions`, `noWatermarkOption`, `audioOptions`, `galleryOption`, `galleryItems`, `formats` |
 | `startDownload` | `taskId`, `url`, `formatSelection`, `outputDir`, `cookiesFilePath?`, `extractAudio`, `formatSort?`, `audioFormat?`, `engine?` (`ytdlp` \| `gallerydl`), `itemCount?` | `true` once queued |
 | `cancelDownload` | `taskId` | whether a process was killed |
+| `updateDownloadService` | `activeCount`, `title`, `text`, `progress` | starts, refreshes or stops the background service |
+| `notifyDownloadFinished` | `taskId`, `title`, `success` | posts the finished/failed notification |
+| `exportToMediaStore` | `path`, `audio` | copies audio to Music/SaveKit, other files to Download/SaveKit |
 
 `EventChannel` `com.app.downloader/progress` emits
 `{taskId, status, progressPercent, speed, eta}` plus `filePath`/`filePaths`/`fileSize` on
@@ -38,17 +41,27 @@ android/app/src/main/kotlin/com/savekit/app/
   DownloadEngine.kt      yt-dlp / aria2c / FFmpeg execution and progress
   MediaInfoParser.kt     yt-dlp JSON -> format options
   GalleryEngine.kt       gallery-dl: photo posts, carousels, self-update
+  DownloadService.kt     foreground service + notifications while downloads run
+  MediaStoreExporter.kt  audio and documents into shared storage
 lib/
   core/
+    providers.dart                            service wiring (Riverpod)
+    engine/engine_controller.dart             engine start-up and over-the-air updates
+    storage/app_paths.dart                    the app's download folder
     native/youtube_dl_native_service.dart     Dart side of the Kotlin bridge
     platform/media_platform.dart              known platforms, link detection
   features/extractor/
     domain/                                   MediaInfo, MediaFormat
+    application/extraction_controller.dart    link lookup state for the format picker
+    application/incoming_link_controller.dart share-sheet links and clipboard detection
     data/media_extractor.dart                 native engine first, WebView fallback
     data/web_page_extractor.dart              reads photos from a page in a hidden WebView
     data/web_extraction_rules.dart            per-site rules (assets/web_rules.json), updatable
   features/downloader/
     domain/                                   DownloadTask, DownloadProgress
+    application/download_queue_controller.dart  queue, history, retries, concurrency
+    data/download_repository.dart             Hive persistence
+    data/gallery_export_service.dart          finished files -> Gallery / Music / Download
     data/direct_download_service.dart         HTTP download of WebView-found photos
   features/cookies/
     domain/platform_account.dart              Instagram, X, TikTok, LinkedIn logins

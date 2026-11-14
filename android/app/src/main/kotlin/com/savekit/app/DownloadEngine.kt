@@ -67,6 +67,7 @@ object DownloadEngine {
     private const val ERROR_UPDATE = "ENGINE_UPDATE_FAILED"
     private const val ERROR_EXTRACT = "EXTRACTION_FAILED"
     private const val ERROR_DOWNLOAD = "DOWNLOAD_FAILED"
+    private const val ERROR_EXPORT = "EXPORT_FAILED"
 
     private const val STATUS_STARTING = "starting"
     private const val STATUS_DOWNLOADING = "downloading"
@@ -610,6 +611,21 @@ object DownloadEngine {
                     eta = if (status == STATUS_PROCESSING) -1 else etaSeconds.toInt(),
                 ),
             )
+        }
+    }
+
+    // endregion
+
+    // region shared storage
+
+    /** Copies a finished audio or document file into the device's shared storage. */
+    fun exportToMediaStore(path: String, audio: Boolean, result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                succeed(result, MediaStoreExporter.export(appContext, path, audio))
+            } catch (e: Throwable) {
+                fail(result, ERROR_EXPORT, e)
+            }
         }
     }
 

@@ -154,6 +154,45 @@ class YoutubeDlNativeService {
         false,
   );
 
+  /// Tells the background service how many downloads are queued or running,
+  /// so Android keeps the app alive until they finish. Zero stops the service.
+  /// [progress] is 0–100, or negative when unknown.
+  Future<void> updateDownloadService({
+    required int activeCount,
+    String title = 'Downloading',
+    String text = '',
+    int progress = -1,
+  }) => _guard(
+    () => _methods.invokeMethod<void>('updateDownloadService', {
+      'activeCount': activeCount,
+      'title': title,
+      'text': text,
+      'progress': progress,
+    }),
+  );
+
+  /// Posts the "Download complete" or "Download failed" notification.
+  Future<void> notifyDownloadFinished({
+    required String taskId,
+    required String title,
+    required bool success,
+  }) => _guard(
+    () => _methods.invokeMethod<void>('notifyDownloadFinished', {
+      'taskId': taskId,
+      'title': title,
+      'success': success,
+    }),
+  );
+
+  /// Copies an audio file to Music/SaveKit, or any other file to
+  /// Download/SaveKit, in the device's shared storage.
+  Future<void> exportToMediaStore(String path, {required bool audio}) => _guard(
+    () => _methods.invokeMethod<void>('exportToMediaStore', {
+      'path': path,
+      'audio': audio,
+    }),
+  );
+
   Future<Map<String, dynamic>> _invokeMap(
     String method, [
     Map<String, Object?>? arguments,
