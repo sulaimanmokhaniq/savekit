@@ -32,3 +32,37 @@ String formatEta(int seconds) {
   if (m < 60) return '${m}m ${s.toString().padLeft(2, '0')}s left';
   return '${m ~/ 60}h ${(m % 60).toString().padLeft(2, '0')}m left';
 }
+
+const _languageNames = {
+  'ar': 'Arabic',
+  'en': 'English',
+  'fr': 'French',
+  'es': 'Spanish',
+  'de': 'German',
+  'it': 'Italian',
+  'pt': 'Portuguese',
+  'ru': 'Russian',
+  'tr': 'Turkish',
+  'fa': 'Persian',
+  'ur': 'Urdu',
+  'hi': 'Hindi',
+  'id': 'Indonesian',
+  'ja': 'Japanese',
+  'ko': 'Korean',
+  'zh': 'Chinese',
+};
+
+/// "Arabic" for "ar", "English (US)" for "en-US"; the code itself when the
+/// language is not one of the common ones.
+String languageName(String code) {
+  final parts = code.split(RegExp('[-_]'));
+  final name = _languageNames[parts.first.toLowerCase()];
+  if (name == null) return code;
+  return parts.length > 1 ? '$name (${parts.sublist(1).join('-')})' : name;
+}
+
+/// "0:10" – always minutes and seconds, including for zero.
+String formatClock(int seconds) {
+  final formatted = formatDuration(seconds);
+  return formatted.isEmpty ? '0:00' : formatted;
+}

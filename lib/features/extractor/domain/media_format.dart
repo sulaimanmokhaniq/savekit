@@ -54,6 +54,10 @@ class MediaFormat {
     this.videoCount = 0,
     this.directUrls = const [],
     this.referer,
+    this.clipStart,
+    this.clipEnd,
+    this.subtitleLanguage,
+    this.autoSubtitles = false,
   });
 
   final String id;
@@ -89,6 +93,49 @@ class MediaFormat {
   /// Page the direct addresses were found on, sent as the `Referer` header.
   final String? referer;
 
+  /// Download only this part, in seconds from the start; both null for the
+  /// whole video.
+  final int? clipStart;
+  final int? clipEnd;
+
+  /// Language of the subtitles to embed in the video; null for none.
+  final String? subtitleLanguage;
+
+  /// The subtitles are machine-made captions, not ones the uploader wrote.
+  final bool autoSubtitles;
+
+  bool get isClipped => clipStart != null || clipEnd != null;
+
+  /// This option with a section to cut and subtitles to embed.
+  MediaFormat withExtras({
+    int? clipStart,
+    int? clipEnd,
+    String? subtitleLanguage,
+    bool autoSubtitles = false,
+    String? label,
+  }) => MediaFormat(
+    id: id,
+    kind: kind,
+    label: label ?? this.label,
+    engine: engine,
+    formatSelection: formatSelection,
+    formatSort: formatSort,
+    extractAudio: extractAudio,
+    audioFormat: audioFormat,
+    ext: ext,
+    height: height,
+    fileSize: clipStart == null && clipEnd == null ? fileSize : null,
+    itemCount: itemCount,
+    imageCount: imageCount,
+    videoCount: videoCount,
+    directUrls: directUrls,
+    referer: referer,
+    clipStart: clipStart,
+    clipEnd: clipEnd,
+    subtitleLanguage: subtitleLanguage,
+    autoSubtitles: autoSubtitles,
+  );
+
   bool get isAudio => kind == MediaFormatKind.audio;
   bool get isGallery => kind == MediaFormatKind.gallery;
   bool get isConversion => engine == DownloadEngineKind.convert;
@@ -113,6 +160,10 @@ class MediaFormat {
           (map['directUrls'] as List?)?.whereType<String>().toList() ??
           const [],
       referer: map['referer'] as String?,
+      clipStart: (map['clipStart'] as num?)?.toInt(),
+      clipEnd: (map['clipEnd'] as num?)?.toInt(),
+      subtitleLanguage: map['subtitleLanguage'] as String?,
+      autoSubtitles: map['autoSubtitles'] as bool? ?? false,
     );
   }
 
@@ -133,5 +184,9 @@ class MediaFormat {
     'videoCount': videoCount,
     'directUrls': directUrls,
     'referer': referer,
+    'clipStart': clipStart,
+    'clipEnd': clipEnd,
+    'subtitleLanguage': subtitleLanguage,
+    'autoSubtitles': autoSubtitles,
   };
 }

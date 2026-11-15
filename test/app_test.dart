@@ -298,6 +298,55 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
+  testWidgets('the picker can trim a video and add subtitles', (tester) async {
+    await pumpApp(tester);
+    await tester.enterText(
+      find.byType(TextField),
+      'https://www.tiktok.com/@studio/video/1',
+    );
+    await tester.tap(find.text('Find media'));
+    await settle(tester);
+
+    await tester.tap(find.text('1080p'));
+    await tester.pump();
+
+    // Trim: turning it on selects the whole video; drag the start inwards.
+    await tester.tap(find.byType(Switch));
+    await settle(tester);
+    expect(find.text('Trim · 0:00 to 3:07'), findsOneWidget);
+    final slider = tester.getRect(find.byType(RangeSlider));
+    await tester.dragFrom(
+      Offset(slider.left + 24, slider.center.dy),
+      Offset(slider.width / 3, 0),
+    );
+    await settle(tester);
+    expect(find.text('Trim · 0:00 to 3:07'), findsNothing);
+    expect(find.textContaining('Download clip · '), findsOneWidget);
+
+    // Subtitles: uploaded ones, then automatic ones the uploader lacks.
+    await tester.tap(find.text('Subtitles'));
+    await settle(tester);
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('French'), findsOneWidget);
+    expect(find.text('Arabic (automatic)'), findsOneWidget);
+    expect(find.text('English (automatic)'), findsNothing);
+    await tester.tap(find.text('Arabic (automatic)'));
+    await settle(tester);
+    await shoot(tester, '20_trim_subtitles');
+
+    await tester.tap(find.textContaining('Download clip · '));
+    await settle(tester);
+
+    final format = native.startedFormats.values.single;
+    expect(format.height, 1080);
+    expect(format.clipStart, greaterThan(20));
+    expect(format.clipEnd, 187);
+    expect(format.subtitleLanguage, 'ar');
+    expect(format.autoSubtitles, isTrue);
+    expect(format.label, startsWith('1080p · '));
+    await tester.pump(const Duration(seconds: 5));
+  });
+
   testWidgets('several pasted links open the batch sheet', (tester) async {
     await pumpApp(tester);
     await tester.enterText(

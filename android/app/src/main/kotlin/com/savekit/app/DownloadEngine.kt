@@ -55,6 +55,13 @@ object DownloadEngine {
         val engine: String,
         /** Files expected from a photo post, for its progress percentage; 0 when unknown. */
         val itemCount: Int,
+        /** Download only this part of the video, in seconds; null for the whole video. */
+        val clipStart: Double? = null,
+        val clipEnd: Double? = null,
+        /** Language of the subtitles to embed in the video; null for none. */
+        val subtitleLanguage: String? = null,
+        /** Take the machine-made captions rather than uploaded subtitles. */
+        val autoSubtitles: Boolean = false,
     )
 
     const val ENGINE_YTDLP = "ytdlp"
@@ -597,6 +604,18 @@ object DownloadEngine {
                 )
 
             if (request.formatSort.isNotEmpty()) ytRequest.addOption("-S", request.formatSort)
+            if (request.clipStart != null || request.clipEnd != null) {
+                // Cuts at the nearest keyframes: fast, and accurate to a few seconds.
+                val from = request.clipStart?.let { formatSeconds(it) } ?: "0"
+                val to = request.clipEnd?.let { formatSeconds(it) } ?: "inf"
+                ytRequest.addOption("--download-sections", "*$from-$to")
+            }
+            if (!request.extractAudio && !request.subtitleLanguage.isNullOrBlank()) {
+                ytRequest
+                    .addOption(if (request.autoSubtitles) "--write-auto-subs" else "--write-subs")
+                    .addOption("--sub-langs", request.subtitleLanguage)
+                    .addOption("--embed-subs")
+            }
             if (request.extractAudio) {
                 ytRequest
                     .addOption("-x")
@@ -676,6 +695,9 @@ object DownloadEngine {
             "filePaths" to files.map { it.absolutePath },
             "fileSize" to files.sumOf { it.length() },
         )
+
+    private fun formatSeconds(seconds: Double): String =
+        if (seconds == Math.floor(seconds)) seconds.toLong().toString() else seconds.toString()
 
     private fun readFinishedFiles(pathFile: File): List<File> {
         if (!pathFile.exists()) return emptyList()

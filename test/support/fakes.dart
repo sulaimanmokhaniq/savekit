@@ -32,6 +32,9 @@ class UiFakeNative implements YoutubeDlNativeService {
   final started = <String>[];
   final canceled = <String>[];
 
+  /// The option each started download was given, by task id.
+  final startedFormats = <String, MediaFormat>{};
+
   /// Whether cancelDownload reports that a process was stopped.
   bool cancelStops = false;
 
@@ -65,7 +68,10 @@ class UiFakeNative implements YoutubeDlNativeService {
     required MediaFormat format,
     required String outputDir,
     String? cookiesFilePath,
-  }) async => started.add(taskId);
+  }) async {
+    started.add(taskId);
+    startedFormats[taskId] = format;
+  }
 
   /// Pages asked for from an account, as (url, start).
   final accountRequests = <(String, int)>[];
@@ -410,6 +416,8 @@ MediaInfo sampleInfo() => MediaInfo(
     ext: 'mp4',
   ),
   audioOptions: const [mp3Format, m4aFormat],
+  subtitleLanguages: const ['en', 'fr'],
+  autoCaptionLanguages: const ['ar', 'en'],
   galleryOption: photosFormat,
   galleryItems: const [
     GalleryItem(url: 'https://img.example/1.jpg', extension: 'jpg'),

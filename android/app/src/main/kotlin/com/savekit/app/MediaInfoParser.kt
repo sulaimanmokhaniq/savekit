@@ -91,7 +91,34 @@ object MediaInfoParser {
             "noWatermarkOption" to noWatermarkOption,
             "audioOptions" to audioOptions,
             "formats" to formats.map { it.toMap() },
+            "subtitleLanguages" to subtitleLanguages(media.optJSONObject("subtitles")),
+            "autoCaptionLanguages" to autoCaptionLanguages(media),
         )
+    }
+
+    /** Languages of the subtitles the uploader provided. */
+    private fun subtitleLanguages(subtitles: JSONObject?): List<String> {
+        if (subtitles == null) return emptyList()
+        val languages = ArrayList<String>()
+        val keys = subtitles.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            // "live_chat" is a chat replay, not subtitles.
+            if (key != "live_chat") languages.add(key)
+        }
+        return languages.sorted()
+    }
+
+    /**
+     * Machine-made captions exist in well over a hundred translated languages; offer only
+     * the video's own language plus Arabic and English.
+     */
+    private fun autoCaptionLanguages(media: JSONObject): List<String> {
+        val captions = media.optJSONObject("automatic_captions") ?: return emptyList()
+        val wanted = LinkedHashSet<String>()
+        media.optStringOrNull("language")?.let { wanted.add(it) }
+        wanted.addAll(listOf("ar", "en"))
+        return wanted.filter { captions.has(it) }
     }
 
     /**

@@ -216,6 +216,37 @@ void main() {
       expect(retried.error, isNull);
     });
 
+    test('keeps the trim and subtitle choices through persistence', () {
+      final format = info.videoOptions.single.withExtras(
+        clipStart: 10,
+        clipEnd: 35,
+        subtitleLanguage: 'ar',
+        autoSubtitles: true,
+        label: '1080p · 0:10–0:35',
+      );
+      final restored = DownloadTask.fromMap(
+        Map<Object?, Object?>.from(
+          DownloadTask.create(
+            id: 't',
+            info: info,
+            format: format,
+            now: created,
+          ).toMap(),
+        ),
+      ).format;
+      expect(restored.isClipped, isTrue);
+      expect(restored.clipStart, 10);
+      expect(restored.clipEnd, 35);
+      expect(restored.subtitleLanguage, 'ar');
+      expect(restored.autoSubtitles, isTrue);
+      // A clip is smaller than the whole, so the old estimate is dropped.
+      expect(restored.fileSize, isNull);
+      expect(
+        restored.formatSelection,
+        info.videoOptions.single.formatSelection,
+      );
+    });
+
     test('survives a persistence round trip', () {
       final task = newTask()
           .applyProgress(

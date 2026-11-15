@@ -162,6 +162,12 @@ class _PickerState extends ConsumerState<_Picker> {
   late _Tab _tab;
   late MediaFormat _selected;
 
+  /// Section to keep, in seconds; null downloads the whole thing.
+  RangeValues? _clip;
+
+  /// Subtitles to embed, as (language, machine-made); null for none.
+  (String, bool)? _subtitles;
+
   MediaInfo get info => widget.info;
 
   List<MediaFormat> _optionsOf(_Tab tab) => switch (tab) {
@@ -187,8 +193,32 @@ class _PickerState extends ConsumerState<_Picker> {
     _selected = _optionsOf(tab).first;
   });
 
+  /// Trimming and subtitles are yt-dlp features for something with a length.
+  bool get _canTrim =>
+      _tab != _Tab.photos &&
+      _selected.engine == DownloadEngineKind.ytdlp &&
+      (info.duration ?? 0) >= 4;
+
+  bool get _canAddSubtitles => _tab == _Tab.video && info.hasSubtitles;
+
   void _download() {
-    ref.read(downloadQueueControllerProvider.notifier).enqueue(info, _selected);
+    final clip = _canTrim ? _clip : null;
+    final subtitles = _canAddSubtitles ? _subtitles : null;
+    var format = _selected;
+    if (clip != null || subtitles != null) {
+      final start = clip?.start.round();
+      final end = clip?.end.round();
+      format = _selected.withExtras(
+        clipStart: start,
+        clipEnd: end,
+        subtitleLanguage: subtitles?.$1,
+        autoSubtitles: subtitles?.$2 ?? false,
+        label: clip == null
+            ? _selected.label
+            : '${_selected.label} · ${formatClock(start!)}–${formatClock(end!)}',
+      );
+    }
+    ref.read(downloadQueueControllerProvider.notifier).enqueue(info, format);
     Navigator.of(context).pop(FormatPickerResult.queued);
   }
 
@@ -244,13 +274,176 @@ class _PickerState extends ConsumerState<_Picker> {
               ),
           ],
         ),
-        const SizedBox(height: 20),
+        if (_canTrim) ...[
+          const SizedBox(height: 10),
+          _TrimControl(
+            duration: info.duration!,
+            clip: _clip,
+            onChanged: (clip) => setState(() => _clip = clip),
+          ),
+        ],
+        if (_canAddSubtitles) ...[
+          const SizedBox(height: 4),
+          _SubtitleControl(
+            info: info,
+            selected: _subtitles,
+            onChanged: (value) => setState(() => _subtitles = value),
+          ),
+        ],
+        const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: _download,
           icon: const Icon(Icons.download_rounded, size: 20),
-          label: Text(size.isEmpty ? 'Download' : 'Download · about $size'),
+          label: Text(
+            _canTrim && _clip != null
+                ? 'Download clip · '
+                      '${formatClock((_clip!.end - _clip!.start).round())}'
+                : size.isEmpty
+                ? 'Download'
+                : 'Download · about $size',
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// "Trim" switch with a range slider to keep only part of the video.
+class _TrimControl extends StatelessWidget {
+  const _TrimControl({
+    required this.duration,
+    required this.clip,
+    required this.onChanged,
+  });
+
+  /// Full length in seconds.
+  final int duration;
+  final RangeValues? clip;
+  final void Function(RangeValues? clip) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final range = clip;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.content_cut_rounded,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                range == null
+                    ? 'Trim'
+                    : 'Trim · ${formatClock(range.start.round())} to '
+                          '${formatClock(range.end.round())}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Switch(
+              value: range != null,
+              onChanged: (on) =>
+                  onChanged(on ? RangeValues(0, duration.toDouble()) : null),
+            ),
+          ],
+        ),
+        if (range != null) ...[
+          RangeSlider(
+            values: range,
+            max: duration.toDouble(),
+            divisions: duration,
+            labels: RangeLabels(
+              formatClock(range.start.round()),
+              formatClock(range.end.round()),
+            ),
+            // Keep at least a second between the two handles.
+            onChanged: (values) {
+              if (values.end - values.start >= 1) onChanged(values);
+            },
+          ),
+          Text(
+            'Cuts at the nearest clean frame, so the clip can start or end '
+            'a few seconds off.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Chooses subtitles to embed in the video, or none.
+class _SubtitleControl extends StatelessWidget {
+  const _SubtitleControl({
+    required this.info,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final MediaInfo info;
+  final (String, bool)? selected;
+  final void Function((String, bool)? value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final choice = selected;
+    final label = choice == null
+        ? 'None'
+        : choice.$2
+        ? '${languageName(choice.$1)} (automatic)'
+        : languageName(choice.$1);
+
+    // A menu reports nothing when a null item is picked, so "None" is an
+    // empty language.
+    return PopupMenuButton<(String, bool)>(
+      tooltip: 'Subtitles',
+      position: PopupMenuPosition.under,
+      onSelected: (value) => onChanged(value.$1.isEmpty ? null : value),
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: ('', false), child: Text('None')),
+        for (final language in info.subtitleLanguages)
+          PopupMenuItem(
+            value: (language, false),
+            child: Text(languageName(language)),
+          ),
+        for (final language in info.autoCaptionLanguages)
+          if (!info.subtitleLanguages.contains(language))
+            PopupMenuItem(
+              value: (language, true),
+              child: Text('${languageName(language)} (automatic)'),
+            ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.subtitles_outlined,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Subtitles',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: choice == null ? AppColors.textMuted : AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Icon(Icons.expand_more_rounded, color: AppColors.textMuted),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -276,6 +276,10 @@ class YoutubeDlNativeService {
         'audioFormat': format.audioFormat,
         'engine': format.engine.id,
         'itemCount': format.itemCount,
+        'clipStart': format.clipStart,
+        'clipEnd': format.clipEnd,
+        'subtitleLanguage': format.subtitleLanguage,
+        'autoSubtitles': format.autoSubtitles,
       }),
     );
   }

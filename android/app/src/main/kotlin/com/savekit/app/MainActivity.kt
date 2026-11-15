@@ -21,7 +21,8 @@ import java.io.File
  *  - getPlaylistInfo(url, cookiesFilePath?)
  *  - getAccountMedia(url, cookiesFilePath?, start, count)
  *  - startDownload(taskId, url, formatSelection, outputDir, cookiesFilePath?, extractAudio,
- *                  formatSort?, audioFormat?, engine?, itemCount?)
+ *                  formatSort?, audioFormat?, engine?, itemCount?, clipStart?, clipEnd?,
+ *                  subtitleLanguage?, autoSubtitles?)
  *  - cancelDownload(taskId)
  *  - updateDownloadService(activeCount, title, text, progress)
  *  - notifyDownloadFinished(taskId, title, success)
@@ -255,6 +256,11 @@ class MainActivity : FlutterFragmentActivity() {
                         engine = call.argument<String>("engine")?.trim()
                             ?.ifEmpty { null } ?: DownloadEngine.ENGINE_YTDLP,
                         itemCount = call.argument<Number>("itemCount")?.toInt() ?: 0,
+                        clipStart = call.argument<Number>("clipStart")?.toDouble(),
+                        clipEnd = call.argument<Number>("clipEnd")?.toDouble(),
+                        subtitleLanguage = call.argument<String>("subtitleLanguage")
+                            ?.trim()?.ifEmpty { null },
+                        autoSubtitles = call.argument<Boolean>("autoSubtitles") ?: false,
                     ),
                     result = result,
                 )

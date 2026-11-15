@@ -47,6 +47,8 @@ class MediaInfo {
     this.audioOptions = const [],
     this.galleryOption,
     this.galleryItems = const [],
+    this.subtitleLanguages = const [],
+    this.autoCaptionLanguages = const [],
   });
 
   /// The link the user supplied.
@@ -76,6 +78,15 @@ class MediaInfo {
   /// "Photos (N)" when the post has photos.
   final MediaFormat? galleryOption;
   final List<GalleryItem> galleryItems;
+
+  /// Languages of subtitles the uploader provided.
+  final List<String> subtitleLanguages;
+
+  /// Languages of machine-made captions worth offering.
+  final List<String> autoCaptionLanguages;
+
+  bool get hasSubtitles =>
+      subtitleLanguages.isNotEmpty || autoCaptionLanguages.isNotEmpty;
 
   bool get hasVideo => videoOptions.isNotEmpty || noWatermarkOption != null;
   bool get hasAudio => audioOptions.isNotEmpty;
@@ -118,9 +129,14 @@ class MediaInfo {
       galleryItems: _maps(map['galleryItems'])
           .map(GalleryItem.fromMap)
           .toList(growable: false),
+      subtitleLanguages: _strings(map['subtitleLanguages']),
+      autoCaptionLanguages: _strings(map['autoCaptionLanguages']),
     );
   }
 }
+
+List<String> _strings(Object? value) =>
+    value is List ? value.whereType<String>().toList() : const [];
 
 /// Platform channels deliver nested maps as `Map<Object?, Object?>`.
 Map<String, dynamic>? _map(Object? value) =>
