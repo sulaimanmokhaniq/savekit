@@ -760,8 +760,8 @@ void main() {
       await shoot(tester, '16_settings_${name.toLowerCase()}');
     }
 
-    // The home-screen icon followed every change.
-    expect(iconChanges, ['vault', 'pulse', 'tide']);
+    // The home-screen icon was set at start-up and followed every change.
+    expect(iconChanges, ['ember', 'vault', 'pulse', 'tide']);
     expect(themeRow(tester).pixels, greaterThan(0));
 
     await tester.tap(find.widgetWithText(SwitchListTile, 'Match the app icon'));
