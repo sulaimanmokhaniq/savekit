@@ -207,6 +207,18 @@ void main() {
     );
   });
 
+  testWidgets('"Phone language" follows the phone when it changes', (
+    tester,
+  ) async {
+    await pumpApp(tester, settings: const AppSettings());
+    expect(find.text('Find media'), findsOneWidget);
+
+    tester.platformDispatcher.localeTestValue = const Locale('ar');
+    tester.platformDispatcher.localesTestValue = const [Locale('ar')];
+    await settle(tester);
+    expect(find.text('ابحث عن الوسائط'), findsOneWidget);
+  });
+
   testWidgets('"Phone language" follows an Arabic phone', (tester) async {
     await pumpApp(
       tester,

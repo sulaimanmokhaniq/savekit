@@ -40,10 +40,13 @@ object MediaInfoParser {
         val media = firstEntry(entries) ?: root
 
         val platform = platformOf(media, root)
-        val formats = parseFormats(media.optJSONArray("formats"))
+        val formats = parseFormats(
+            media.optJSONArray("formats"),
+            media.optDoubleOrNull("duration"),
+        )
         val videoFormats = formats.filter { it.hasVideo }
         val audioFormats = formats.filter { it.hasAudio && !it.hasVideo }
-        val bestAudioSize = audioFormats.maxByOrNull { it.bitrate }?.size
+        val bestAudioSize = audioFormats.filter { it.size != null }.maxByOrNull { it.bitrate }?.size
 
         val videoOptions = buildVideoOptions(videoFormats, bestAudioSize)
         val noWatermarkOption =
@@ -179,9 +182,9 @@ object MediaInfoParser {
             if (!seenTiers.add(tier.first)) continue
 
             // Largest stream in this bucket; add the separate audio track when it has none.
-            val best = videoFormats
-                .filter { (it.resolution ?: 0) in tier.first..resolution }
-                .maxByOrNull { it.bitrate }
+            val inTier = videoFormats.filter { (it.resolution ?: 0) in tier.first..resolution }
+            val best = inTier.filter { it.size != null }.maxByOrNull { it.bitrate }
+                ?: inTier.maxByOrNull { it.bitrate }
             val videoSize = best?.size
             val totalSize = when {
                 videoSize == null -> null
@@ -253,7 +256,11 @@ object MediaInfoParser {
         ),
     )
 
-    private fun parseFormats(array: JSONArray?): List<Format> {
+    /**
+     * [durationSeconds] lets a size be estimated from the bitrate for the many formats
+     * (YouTube's especially) whose size the site does not state.
+     */
+    private fun parseFormats(array: JSONArray?, durationSeconds: Double?): List<Format> {
         if (array == null) return emptyList()
         val formats = ArrayList<Format>(array.length())
         for (i in 0 until array.length()) {
@@ -263,6 +270,10 @@ object MediaInfoParser {
             // Storyboards and thumbnails-as-formats are not downloadable media.
             if (ext == "mhtml") continue
 
+            val bitrate = item.optDoubleOrNull("tbr")
+                ?: item.optDoubleOrNull("vbr")
+                ?: item.optDoubleOrNull("abr")
+                ?: 0.0
             val vcodec = item.optStringOrNull("vcodec")
             val acodec = item.optStringOrNull("acodec")
             val width = item.optIntOrNull("width")
@@ -280,11 +291,10 @@ object MediaInfoParser {
                     fps = item.optDoubleOrNull("fps"),
                     vcodec = vcodec,
                     acodec = acodec,
-                    size = item.optLongOrNull("filesize") ?: item.optLongOrNull("filesize_approx"),
-                    bitrate = item.optDoubleOrNull("tbr")
-                        ?: item.optDoubleOrNull("vbr")
-                        ?: item.optDoubleOrNull("abr")
-                        ?: 0.0,
+                    size = item.optLongOrNull("filesize")
+                        ?: item.optLongOrNull("filesize_approx")
+                        ?: estimateSize(bitrate, durationSeconds),
+                    bitrate = bitrate,
                     note = item.optStringOrNull("format_note"),
                     hasVideo = hasVideo,
                     hasAudio = hasAudio,
@@ -292,6 +302,12 @@ object MediaInfoParser {
             )
         }
         return formats
+    }
+
+    /** Bytes for [bitrateKbps] kilobits per second over [durationSeconds]; null if unknown. */
+    private fun estimateSize(bitrateKbps: Double, durationSeconds: Double?): Long? {
+        if (bitrateKbps <= 0.0 || durationSeconds == null || durationSeconds <= 0.0) return null
+        return (bitrateKbps * 1000.0 / 8.0 * durationSeconds).toLong()
     }
 
     private fun thumbnailOf(media: JSONObject): String? {

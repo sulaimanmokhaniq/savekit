@@ -16,7 +16,8 @@ class SaveKitApp extends ConsumerStatefulWidget {
   ConsumerState<SaveKitApp> createState() => _SaveKitAppState();
 }
 
-class _SaveKitAppState extends ConsumerState<SaveKitApp> {
+class _SaveKitAppState extends ConsumerState<SaveKitApp>
+    with WidgetsBindingObserver {
   late AppPalette _palette;
   late Locale _locale;
 
@@ -30,6 +31,7 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp> {
     AppColors.current = _palette;
     _locale = _resolveLocale(ref.read(settingsControllerProvider).language);
     L10n.locale = _locale;
+    WidgetsBinding.instance.addObserver(this);
 
     // Bring the home-screen icon in line with the saved theme. Android does
     // nothing when it already matches.
@@ -37,6 +39,18 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp> {
     ref.read(launcherIconProvider)(
       settings.matchIcon ? settings.themeId : AppSettings.defaultThemeId,
     );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// The phone's language changed, or was only now reported by Android.
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    _applyLanguage(ref.read(settingsControllerProvider).language);
   }
 
   /// Screens read their colours from [AppColors] while building, so a new

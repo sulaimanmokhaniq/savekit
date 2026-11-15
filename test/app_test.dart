@@ -272,6 +272,10 @@ void main() {
     expect(find.text('Best No-Watermark'), findsOneWidget);
     expect(find.text('4K'), findsOneWidget);
     expect(find.text('3:07'), findsOneWidget);
+    // Each quality shows its size beneath it, when known.
+    expect(find.text('412 MB'), findsOneWidget);
+    expect(find.text('148 MB'), findsOneWidget);
+    expect(find.text('27.0 MB'), findsOneWidget);
     await shoot(tester, '02_format_picker');
 
     await tester.tap(find.text('1080p'));

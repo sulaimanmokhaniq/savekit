@@ -269,7 +269,10 @@ class _PickerState extends ConsumerState<_Picker> {
           children: [
             for (final option in options)
               ChoiceChip(
-                label: Text(tr(option.label)),
+                label: _OptionLabel(
+                  option: option,
+                  selected: option.id == _selected.id,
+                ),
                 selected: option.id == _selected.id,
                 onSelected: (_) => setState(() => _selected = option),
               ),
@@ -304,6 +307,36 @@ class _PickerState extends ConsumerState<_Picker> {
                 : size.isEmpty
                 ? tr('Download')
                 : tr('Download · about $size'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A quality chip's text: the quality, with its approximate size beneath
+/// when the site reports enough to know it.
+class _OptionLabel extends StatelessWidget {
+  const _OptionLabel({required this.option, required this.selected});
+
+  final MediaFormat option;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = formatBytes(option.fileSize);
+    if (size.isEmpty) return Text(tr(option.label));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(tr(option.label)),
+        const SizedBox(height: 2),
+        Text(
+          size,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: selected ? AppColors.onAccent : AppColors.textMuted,
           ),
         ),
       ],
