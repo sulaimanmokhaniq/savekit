@@ -170,7 +170,8 @@ void main() {
     await shoot(tester, 'ar_4_tools');
 
     await openTab(tester, 'الإعدادات');
-    expect(find.text('المظهر'), findsOneWidget);
+    // The section heading, and the "same as theme" icon tile.
+    expect(find.text('المظهر'), findsNWidgets(2));
     expect(find.text('اسأل في كل مرة'), findsOneWidget);
     await shoot(tester, 'ar_5_settings');
   });

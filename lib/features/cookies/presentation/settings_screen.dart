@@ -685,7 +685,8 @@ class _IconPicker extends StatelessWidget {
           tile(
             id: AppSettings.iconMatchesTheme,
             palette: AppPalette.byId(themeId),
-            name: tr('Same as theme'),
+            // Short enough to fit the tile; the full wording is read aloud.
+            name: tr('Theme'),
             label: tr('Same as theme'),
           ),
           for (final palette in AppPalette.all) ...[
