@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
@@ -52,6 +53,7 @@ enum VaultSort {
 class AppSettings {
   const AppSettings({
     this.themeId = 'ember',
+    this.matchIcon = true,
     this.oneTap = QualityPreference.ask,
     this.wifiOnly = false,
     this.maxConcurrent = 3,
@@ -62,6 +64,9 @@ class AppSettings {
 
   /// Id of the selected [AppPalette].
   final String themeId;
+
+  /// Whether the home-screen icon takes the theme's colour.
+  final bool matchIcon;
 
   /// Quality used when a link is shared to the app; [QualityPreference.ask]
   /// opens the picker instead.
@@ -78,11 +83,13 @@ class AppSettings {
   final VaultSort vaultSort;
   final bool vaultGrid;
 
+  static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
 
   AppSettings copyWith({
     String? themeId,
+    bool? matchIcon,
     QualityPreference? oneTap,
     bool? wifiOnly,
     int? maxConcurrent,
@@ -91,6 +98,7 @@ class AppSettings {
     bool? vaultGrid,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
+    matchIcon: matchIcon ?? this.matchIcon,
     oneTap: oneTap ?? this.oneTap,
     wifiOnly: wifiOnly ?? this.wifiOnly,
     maxConcurrent: (maxConcurrent ?? this.maxConcurrent).clamp(
@@ -104,6 +112,7 @@ class AppSettings {
 
   Map<String, dynamic> toMap() => {
     'themeId': themeId,
+    'matchIcon': matchIcon,
     'oneTap': oneTap.id,
     'wifiOnly': wifiOnly,
     'maxConcurrent': maxConcurrent,
@@ -114,6 +123,7 @@ class AppSettings {
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
     themeId: map['themeId'] as String? ?? 'ember',
+    matchIcon: map['matchIcon'] as bool? ?? true,
     oneTap: QualityPreference.fromId(map['oneTap'] as String?),
     wifiOnly: map['wifiOnly'] as bool? ?? false,
     maxConcurrent: ((map['maxConcurrent'] as num?)?.toInt() ?? 3).clamp(
@@ -171,6 +181,22 @@ class InMemorySettingsRepository implements SettingsRepository {
   Future<void> save(AppSettings settings) async => _settings = settings;
 }
 
+/// Changes the home-screen icon to the one of a theme. On Android this
+/// switches which launcher entry is enabled; the launcher shows the new icon
+/// within a few seconds.
+typedef LauncherIconSetter = Future<void> Function(String themeId);
+
+final launcherIconProvider = Provider<LauncherIconSetter>(
+  (ref) => (themeId) async {
+    try {
+      await const MethodChannel('com.app.downloader/engine')
+          .invokeMethod<void>('setLauncherIcon', {'theme': themeId});
+    } catch (_) {
+      // The icon is cosmetic; the theme itself has already changed.
+    }
+  },
+);
+
 /// Overridden in `main()` with the opened Hive repository.
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => InMemorySettingsRepository(),
@@ -185,7 +211,23 @@ class SettingsController extends Notifier<AppSettings> {
     ref.read(settingsRepositoryProvider).save(settings);
   }
 
-  void setTheme(String themeId) => _set(state.copyWith(themeId: themeId));
+  void setTheme(String themeId) {
+    _set(state.copyWith(themeId: themeId));
+    _syncIcon();
+  }
+
+  void setMatchIcon(bool value) {
+    _set(state.copyWith(matchIcon: value));
+    _syncIcon();
+  }
+
+  /// The home-screen icon follows the theme, or goes back to the default
+  /// icon when matching is off.
+  void _syncIcon() {
+    final theme = state.matchIcon ? state.themeId : AppSettings.defaultThemeId;
+    ref.read(launcherIconProvider)(theme);
+  }
+
   void setOneTap(QualityPreference value) =>
       _set(state.copyWith(oneTap: value));
   void setWifiOnly(bool value) => _set(state.copyWith(wifiOnly: value));

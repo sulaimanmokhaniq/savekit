@@ -12,18 +12,18 @@
         android:translateY="24.24">
         <path
             android:pathData="M48,22v30"
-            android:strokeColor="#1A0D05"
+            android:strokeColor="#14100E"
             android:strokeWidth="9"
             android:strokeLineCap="round"/>
         <path
             android:pathData="M33,41l15,15 15,-15"
-            android:strokeColor="#1A0D05"
+            android:strokeColor="#14100E"
             android:strokeWidth="9"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"/>
         <path
             android:pathData="M25,58v8a8,8 0,0 0,8 8h30a8,8 0,0 0,8 -8v-8"
-            android:strokeColor="#1A0D05"
+            android:strokeColor="#14100E"
             android:strokeWidth="9"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"/>

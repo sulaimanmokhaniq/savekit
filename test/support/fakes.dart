@@ -396,7 +396,11 @@ List<Override> uiOverrides({
   UiFakeDeviceFiles? deviceFiles,
   StorageSnapshot? storage,
   UiFakeGallery? gallery,
+  List<String>? iconChanges,
 }) => [
+  launcherIconProvider.overrideWithValue(
+    (themeId) async => iconChanges?.add(themeId),
+  ),
   vaultLockServiceProvider.overrideWithValue(vaultLock ?? UiFakeVaultLock()),
   deviceFilesServiceProvider.overrideWithValue(
     deviceFiles ?? UiFakeDeviceFiles(),

@@ -137,6 +137,7 @@ void main() {
   late UiFakeNative native;
   late UiFakeVaultLock vaultLock;
   late UiFakeDeviceFiles deviceFiles;
+  late List<String> iconChanges;
 
   /// Starts pending animations and async work, then runs them to the end.
   /// (pumpAndSettle cannot be used: progress spinners never settle.)
@@ -159,6 +160,7 @@ void main() {
     native = UiFakeNative();
     vaultLock = UiFakeVaultLock();
     deviceFiles = UiFakeDeviceFiles();
+    iconChanges = [];
     tester.view.physicalSize = const Size(824, 1830);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
@@ -175,6 +177,7 @@ void main() {
           settings: settings,
           vaultLock: vaultLock,
           deviceFiles: deviceFiles,
+          iconChanges: iconChanges,
           storage: storage ?? const StorageSnapshot(),
         ),
         child: const SaveKitApp(),
@@ -209,6 +212,17 @@ void main() {
         matching: find.byType(Scrollable),
       )
       .first;
+
+  ScrollPosition themeRow(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(SettingsScreen),
+              matching: find.byType(Scrollable),
+            )
+            .at(1),
+      )
+      .position;
 
   Future<void> scrollSettingsTo(WidgetTester tester, Finder target) async {
     await tester.scrollUntilVisible(target, 250, scrollable: settingsList());
@@ -719,11 +733,23 @@ void main() {
       );
       await tester.ensureVisible(card);
       await tester.pump();
+      ScrollPosition themeRow() => tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(SettingsScreen),
+                  matching: find.byType(Scrollable),
+                )
+                .at(1),
+          )
+          .position;
+      final before = themeRow().pixels;
       await tester.tap(card);
       await settle(tester);
-      // Still on Settings after the whole app rebuilt in the new colours.
+      // Recoloured in place: still on Settings, and the theme row has not
+      // jumped back to its start.
       expect(find.byType(SettingsScreen), findsOneWidget);
-      expect(find.text('DOWNLOADS'), findsOneWidget);
+      expect(themeRow().pixels, before);
       expect(AppColors.current.name, name);
       expect(
         Theme.of(tester.element(find.byType(SettingsScreen)))
@@ -733,6 +759,16 @@ void main() {
       );
       await shoot(tester, '16_settings_${name.toLowerCase()}');
     }
+
+    // The home-screen icon followed every change.
+    expect(iconChanges, ['vault', 'pulse', 'tide']);
+    expect(themeRow(tester).pixels, greaterThan(0));
+
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Match the app icon'));
+    await settle(tester);
+    // Turned off: back to the default icon, while the theme stays.
+    expect(iconChanges.last, 'ember');
+    expect(AppColors.current.name, 'Tide');
 
     await openTab(tester, 'Home');
     await shoot(tester, '17_home_tide');

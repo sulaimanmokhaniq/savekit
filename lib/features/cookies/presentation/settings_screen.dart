@@ -79,6 +79,20 @@ class SettingsScreen extends ConsumerWidget {
             selectedId: settings.themeId,
             onSelect: settingsController.setTheme,
           ),
+          const SizedBox(height: 10),
+          Card(
+            child: SwitchListTile(
+              value: settings.matchIcon,
+              onChanged: settingsController.setMatchIcon,
+              secondary: Icon(Icons.apps_rounded, color: AppColors.textMuted),
+              title: const Text('Match the app icon'),
+              subtitle: Text(
+                'The icon on your home screen takes the theme’s colour. '
+                'It can take a few seconds to change.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+            ),
+          ),
           const SizedBox(height: 22),
           const _SectionTitle('DOWNLOADS'),
           Card(

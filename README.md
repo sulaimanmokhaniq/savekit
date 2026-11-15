@@ -14,7 +14,7 @@ third-party API: extraction, multi-connection downloading and stream merging all
 - **Tools**: convert any video on the phone to MP3/M4A, save WhatsApp statuses you have
   viewed, and a storage manager with sizes, sorting and delete.
 - **Themes**: five solid-colour themes (Ember, Vault, Pulse, Tide, Classic), switchable in
-  Settings.
+  Settings. The home-screen icon can follow the theme.
 
 ## How it works
 

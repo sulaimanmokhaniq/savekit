@@ -26,6 +26,7 @@ import java.io.File
  *  - notifyDownloadFinished(taskId, title, success)
  *  - exportToMediaStore(path, kind)                 -> address of the gallery copy
  *  - deleteFromMediaStore(locations, names)         -> true when every copy is gone
+ *  - setLauncherIcon(theme)                          home-screen icon follows the theme
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
@@ -291,6 +292,15 @@ class MainActivity : FlutterFragmentActivity() {
                 names = call.argument<List<String>>("names").orEmpty(),
                 result = result,
             )
+
+            "setLauncherIcon" -> {
+                try {
+                    LauncherIcon.apply(applicationContext, call.argument<String>("theme").orEmpty())
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ICON_FAILED", e.message, null)
+                }
+            }
 
             "pickVideo" -> launchPicker(
                 DeviceFiles.REQUEST_PICK_VIDEO,
