@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../data/media_extractor.dart';
 import '../domain/media_info.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// What the format picker is showing.
 sealed class ExtractionState {
@@ -45,7 +46,7 @@ class ExtractionController extends Notifier<ExtractionState> {
     if (trimmed.isEmpty) return;
     final uri = Uri.tryParse(trimmed);
     if (uri == null || !uri.scheme.startsWith('http') || uri.host.isEmpty) {
-      state = ExtractionFailed(trimmed, 'That does not look like a link.');
+      state = ExtractionFailed(trimmed, tr('That does not look like a link.'));
       return;
     }
 
@@ -57,7 +58,7 @@ class ExtractionController extends Notifier<ExtractionState> {
       state = info.allOptions.isEmpty
           ? ExtractionFailed(
               trimmed,
-              'Nothing downloadable was found at this link.',
+              tr('Nothing downloadable was found at this link.'),
             )
           : ExtractionLoaded(info);
     } on MediaExtractionException catch (error) {

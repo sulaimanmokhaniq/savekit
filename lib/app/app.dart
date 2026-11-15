@@ -1,6 +1,10 @@
+import 'package:flutter_localizations/flutter_localizations.dart'
+    show GlobalWidgetsLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../core/l10n/l10n.dart';
+import '../core/l10n/material_localizations_ar.dart';
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import 'home_shell.dart';
@@ -14,12 +18,18 @@ class SaveKitApp extends ConsumerStatefulWidget {
 
 class _SaveKitAppState extends ConsumerState<SaveKitApp> {
   late AppPalette _palette;
+  late Locale _locale;
+
+  Locale _resolveLocale(AppLanguage language) =>
+      language.resolve(WidgetsBinding.instance.platformDispatcher.locale);
 
   @override
   void initState() {
     super.initState();
     _palette = AppPalette.byId(ref.read(settingsControllerProvider).themeId);
     AppColors.current = _palette;
+    _locale = _resolveLocale(ref.read(settingsControllerProvider).language);
+    L10n.locale = _locale;
 
     // Bring the home-screen icon in line with the saved theme. Android does
     // nothing when it already matches.
@@ -37,6 +47,20 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp> {
     if (palette.id == _palette.id) return;
     AppColors.current = palette;
     setState(() => _palette = palette);
+    _rebuildEverything();
+  }
+
+  /// Text is translated while building too, so a new language rebuilds every
+  /// widget the same way; the layout direction follows the locale.
+  void _applyLanguage(AppLanguage language) {
+    final locale = _resolveLocale(language);
+    if (locale == _locale) return;
+    L10n.locale = locale;
+    setState(() => _locale = locale);
+    _rebuildEverything();
+  }
+
+  void _rebuildEverything() {
     void rebuild(Element element) {
       element.markNeedsBuild();
       element.visitChildren(rebuild);
@@ -51,11 +75,22 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp> {
       settingsControllerProvider.select((settings) => settings.themeId),
       (_, themeId) => _applyTheme(themeId),
     );
+    ref.listen(
+      settingsControllerProvider.select((settings) => settings.language),
+      (_, language) => _applyLanguage(language),
+    );
 
     return MaterialApp(
       title: 'SaveKit',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(_palette),
+      locale: _locale,
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      localizationsDelegates: const [
+        AppMaterialLocalizationsDelegate(),
+        AppCupertinoLocalizationsDelegate(),
+        GlobalWidgetsLocalizations.delegate,
+      ],
       // Colours switch at once rather than fading through mixed states.
       themeAnimationDuration: Duration.zero,
       home: const HomeShell(),

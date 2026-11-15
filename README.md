@@ -13,6 +13,13 @@ third-party API: extraction, multi-connection downloading and stream merging all
   Deleting a download removes it from the phone entirely, gallery copy included.
 - **Tools**: convert any video on the phone to MP3/M4A, save WhatsApp statuses you have
   viewed, and a storage manager with sizes, sorting and delete.
+- **Accounts**: paste a profile or channel link (X, YouTube, Instagram, TikTok, Snapchat) to
+  list its recent media and download a selection.
+- **Trim and subtitles**: keep only a section of a video, and embed subtitles.
+- **Storage**: one copy per download, in the gallery or private to the app.
+- **Arabic**: full Arabic text with right-to-left layout, following the phone or chosen in
+  Settings. The English text in the code is the key; translations live in
+  `lib/core/l10n/strings_ar.dart`.
 - **Themes**: five solid-colour themes (Ember, Vault, Pulse, Tide, Classic), switchable in
   Settings. The home-screen icon can follow the theme.
 
@@ -42,11 +49,15 @@ third-party API: extraction, multi-connection downloading and stream merging all
 | `exportToMediaStore` | `path`, `kind` | copies a file to Pictures/Movies/Music/Download `SaveKit` and returns the copy's address |
 | `deleteFromMediaStore` | `locations`, `names` | deletes exported copies, so deleting a download frees its space everywhere |
 | `getPlaylistInfo` | `url`, `cookiesFilePath?` | playlist title and entries, without resolving each |
+| `getAccountMedia` | `url`, `cookiesFilePath?`, `start`, `count` | one page of an account's media |
+| `setLauncherIcon` | `theme` | home-screen icon follows the theme |
+| `previewStatus` | `uri` | temporary file of a WhatsApp status, for preview |
 | `pickVideo` | none | `{path, name, size}` of a video chosen in the system picker, or null |
 | `grantStatusFolder`, `statusFolderGranted`, `forgetStatusFolder` | `business?` | access to WhatsApp's status folder |
 | `listStatuses`, `statusThumbnail`, `importStatuses` | see `DeviceFiles.kt` | list, preview and copy viewed statuses |
 
 `startDownload` with `engine: convert` converts the local video at `url` to `audioFormat`.
+It also takes `clipStart`/`clipEnd` (seconds) and `subtitleLanguage`/`autoSubtitles`.
 
 `EventChannel` `com.app.downloader/progress` emits
 `{taskId, status, progressPercent, speed, eta}` plus `filePath`/`filePaths`/`fileSize` on

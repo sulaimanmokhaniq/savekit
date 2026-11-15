@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import '../l10n/l10n.dart';
+
 /// What to download when the picker is skipped (one-tap sharing, batches and
 /// playlists).
 enum QualityPreference {
@@ -81,6 +83,7 @@ class AppSettings {
     this.autoUpdate = true,
     this.lastEngineUpdate,
     this.saveLocation = SaveLocation.gallery,
+    this.language = AppLanguage.system,
   });
 
   /// Id of the selected [AppPalette].
@@ -113,6 +116,9 @@ class AppSettings {
   /// Where new downloads are kept.
   final SaveLocation saveLocation;
 
+  /// Language of the app's own text.
+  final AppLanguage language;
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -129,6 +135,7 @@ class AppSettings {
     bool? autoUpdate,
     DateTime? lastEngineUpdate,
     SaveLocation? saveLocation,
+    AppLanguage? language,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     matchIcon: matchIcon ?? this.matchIcon,
@@ -144,6 +151,7 @@ class AppSettings {
     autoUpdate: autoUpdate ?? this.autoUpdate,
     lastEngineUpdate: lastEngineUpdate ?? this.lastEngineUpdate,
     saveLocation: saveLocation ?? this.saveLocation,
+    language: language ?? this.language,
   );
 
   Map<String, dynamic> toMap() => {
@@ -158,6 +166,7 @@ class AppSettings {
     'autoUpdate': autoUpdate,
     'lastEngineUpdate': lastEngineUpdate?.millisecondsSinceEpoch,
     'saveLocation': saveLocation.id,
+    'language': language.id,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -179,6 +188,7 @@ class AppSettings {
           )
         : null,
     saveLocation: SaveLocation.fromId(map['saveLocation'] as String?),
+    language: AppLanguage.fromId(map['language'] as String?),
   );
 }
 
@@ -282,6 +292,7 @@ class SettingsController extends Notifier<AppSettings> {
   void setLockVault(bool value) => _set(state.copyWith(lockVault: value));
   void setVaultSort(VaultSort value) => _set(state.copyWith(vaultSort: value));
   void setVaultGrid(bool value) => _set(state.copyWith(vaultGrid: value));
+  void setLanguage(AppLanguage value) => _set(state.copyWith(language: value));
   void setSaveLocation(SaveLocation value) =>
       _set(state.copyWith(saveLocation: value));
   void setAutoUpdate(bool value) => _set(state.copyWith(autoUpdate: value));

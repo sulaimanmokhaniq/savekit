@@ -9,6 +9,7 @@ import '../../../core/widgets/platform_badge.dart';
 import '../../../core/widgets/savekit_logo.dart';
 import '../application/batch_controller.dart';
 import '../application/incoming_link_controller.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Home / Smart Paste: paste or type a link, or take the one found on the
 /// clipboard, and open the format picker for it.
@@ -39,7 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     final urls = extractAllUrls(text);
     if (urls.isEmpty) {
-      _showMessage('There is no link on the clipboard.');
+      _showMessage(tr('There is no link on the clipboard.'));
       return;
     }
     _controller.text = urls.join('\n');
@@ -49,7 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty) {
-      _showMessage('Paste a link first.');
+      _showMessage(tr('Paste a link first.'));
       return;
     }
     _focus.unfocus();
@@ -88,13 +89,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            SaveKitLogo(size: 30),
-            SizedBox(width: 10),
+            const SaveKitLogo(size: 30),
+            const SizedBox(width: 10),
             Flexible(
               child: Text(
-                'SaveKit',
+                tr('SaveKit'),
                 maxLines: 1,
                 overflow: TextOverflow.fade,
                 softWrap: false,
@@ -114,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.system_update_alt_rounded, size: 18),
-              label: Text(updating ? 'Updating…' : 'Update Engine'),
+              label: Text(updating ? tr('Updating…') : tr('Update Engine')),
             ),
           ),
         ],
@@ -122,9 +123,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          const Text(
-            'Save video, audio and photos',
-            style: TextStyle(
+          Text(
+            tr('Save video, audio and photos'),
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.6,
@@ -133,8 +134,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Paste one link or several, or share one to SaveKit from any '
-            'app. Everything runs on this phone.',
+            tr(
+              'Paste one link or several, or share one to SaveKit from any '
+              'app. Everything runs on this phone.',
+            ),
             style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
           const SizedBox(height: 22),
@@ -143,6 +146,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             focusNode: _focus,
             keyboardType: TextInputType.url,
             textInputAction: TextInputAction.go,
+            // Links read left to right in every language.
+            textDirection: TextDirection.ltr,
             // Grows to show several pasted links.
             minLines: 1,
             maxLines: 4,
@@ -150,13 +155,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
               hintText: 'https://…',
+              hintTextDirection: TextDirection.ltr,
               prefixIcon: Icon(Icons.link_rounded, color: AppColors.textMuted),
               suffixIcon: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: TextButton.icon(
                   onPressed: _paste,
                   icon: const Icon(Icons.content_paste_rounded, size: 18),
-                  label: const Text('Paste'),
+                  label: Text(tr('Paste')),
                 ),
               ),
             ),
@@ -165,7 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           FilledButton.icon(
             onPressed: _submit,
             icon: const Icon(Icons.search_rounded, size: 20),
-            label: const Text('Find media'),
+            label: Text(tr('Find media')),
           ),
           if (clipboardLink != null) ...[
             const SizedBox(height: 14),
@@ -196,7 +202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 28),
           Text(
-            'WORKS WITH',
+            tr('WORKS WITH'),
             style: TextStyle(
               color: AppColors.textMuted,
               fontSize: 12,
@@ -232,7 +238,7 @@ class _MorePill extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: Text(
-        '+ 1,000 more sites',
+        tr('+ 1,000 more sites'),
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -275,9 +281,9 @@ class _ClipboardBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Link copied — tap to fetch',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    Text(
+                      tr('Link copied — tap to fetch'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -294,7 +300,7 @@ class _ClipboardBanner extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onDismiss,
-                tooltip: 'Dismiss',
+                tooltip: tr('Dismiss'),
                 icon: const Icon(Icons.close_rounded, size: 20),
                 color: AppColors.textMuted,
               ),
@@ -326,7 +332,9 @@ class _EngineStatus extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Preparing the download engine (first launch takes a moment)…',
+              tr(
+                'Preparing the download engine (first launch takes a moment)…',
+              ),
               style: style,
             ),
           ),
@@ -338,13 +346,13 @@ class _EngineStatus extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Engine failed to start: $error',
+              tr('Engine failed to start: $error'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: style,
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(onPressed: onRetry, child: Text(tr('Retry'))),
         ],
       ),
       data: (state) => Row(
@@ -353,7 +361,7 @@ class _EngineStatus extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Engine ready · yt-dlp ${state.version}',
+              tr('Engine ready · yt-dlp ${state.version}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: style,
@@ -385,16 +393,18 @@ class _BatchBanner extends StatelessWidget {
     final String title;
     if (batch.running) {
       title = batch.total == 1
-          ? 'Reading link…'
-          : 'Reading link ${batch.done + 1} of ${batch.total}…';
+          ? tr('Reading link…')
+          : tr('Reading link ${batch.done + 1} of ${batch.total}…');
     } else if (failures.isEmpty) {
       title = batch.queued == 1
-          ? 'Added to the queue'
-          : '${batch.queued} downloads added to the queue';
+          ? tr('Added to the queue')
+          : tr('${batch.queued} downloads added to the queue');
     } else {
       title = batch.queued == 0
-          ? 'Couldn’t read ${failures.length == 1 ? 'this link' : 'these links'}'
-          : '${batch.queued} added · ${failures.length} couldn’t be read';
+          ? tr(
+              'Couldn’t read ${failures.length == 1 ? 'this link' : 'these links'}',
+            )
+          : tr('${batch.queued} added · ${failures.length} couldn’t be read');
     }
 
     return Card(
@@ -429,11 +439,11 @@ class _BatchBanner extends StatelessWidget {
                   ),
                 ),
                 if (batch.running)
-                  TextButton(onPressed: onCancel, child: const Text('Stop'))
+                  TextButton(onPressed: onCancel, child: Text(tr('Stop')))
                 else
                   IconButton(
                     onPressed: onDismiss,
-                    tooltip: 'Dismiss',
+                    tooltip: tr('Dismiss'),
                     icon: const Icon(Icons.close_rounded, size: 20),
                     color: AppColors.textMuted,
                   ),
@@ -481,7 +491,7 @@ class _BatchBanner extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Open',
+                        tr('Open'),
                         style: TextStyle(
                           color: AppColors.accent,
                           fontWeight: FontWeight.w700,
@@ -496,7 +506,7 @@ class _BatchBanner extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'and ${failures.length - 3} more',
+                  tr('and ${failures.length - 3} more'),
                   style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                 ),
               ),

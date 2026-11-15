@@ -7,6 +7,7 @@ import '../application/storage_controller.dart';
 import 'converter_screen.dart';
 import 'status_saver_screen.dart';
 import 'storage_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Tools: the converter, the WhatsApp status saver and the storage manager.
 class ToolsScreen extends ConsumerWidget {
@@ -20,31 +21,35 @@ class ToolsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final storage = ref.watch(storageSnapshotProvider).value;
     final used = storage == null || storage.totalBytes == 0
-        ? 'See what takes up space, sort by size, and delete.'
-        : '${formatBytes(storage.totalBytes)} used · ${storage.files.length} files';
+        ? tr('See what takes up space, sort by size, and delete.')
+        : tr(
+            '${formatBytes(storage.totalBytes)} used · ${storage.files.length} files',
+          );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tools')),
+      appBar: AppBar(title: Text(tr('Tools'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           _ToolCard(
             icon: Icons.graphic_eq_rounded,
-            title: 'Video to audio',
-            subtitle: 'Convert any video on this phone to MP3 or M4A.',
+            title: tr('Video to audio'),
+            subtitle: tr('Convert any video on this phone to MP3 or M4A.'),
             onTap: () => _open(context, const ConverterScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(
             icon: Icons.chat_bubble_outline_rounded,
-            title: 'WhatsApp statuses',
-            subtitle: 'Save photos and videos from statuses you have viewed.',
+            title: tr('WhatsApp statuses'),
+            subtitle: tr(
+              'Save photos and videos from statuses you have viewed.',
+            ),
             onTap: () => _open(context, const StatusSaverScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(
             icon: Icons.pie_chart_outline_rounded,
-            title: 'Storage',
+            title: tr('Storage'),
             subtitle: used,
             onTap: () => _open(context, const StorageScreen()),
           ),

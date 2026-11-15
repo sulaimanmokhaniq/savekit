@@ -12,6 +12,7 @@ import '../../../core/widgets/media_thumbnail.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../../extractor/domain/media_format.dart';
 import '../../vault/presentation/media_viewer_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Whether access to WhatsApp's status folder has been granted.
 final statusAccessProvider = FutureProvider<bool>(
@@ -21,7 +22,7 @@ final statusAccessProvider = FutureProvider<bool>(
 /// The viewed statuses currently on the phone.
 final statusListProvider = FutureProvider<List<WhatsAppStatus>>((ref) async {
   final granted = await ref.watch(statusAccessProvider.future);
-  if (!granted) return const [];
+  if (!granted) return [];
   return ref.watch(deviceFilesServiceProvider).listStatuses();
 });
 
@@ -66,10 +67,12 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
           .grantStatusFolder(business: business);
       if (!granted) {
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Access was not given. Open the “.Statuses” folder and tap '
-              '“Use this folder”.',
+              tr(
+                'Access was not given. Open the “.Statuses” folder and tap '
+                '“Use this folder”.',
+              ),
             ),
           ),
         );
@@ -101,8 +104,8 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
           .read(downloadQueueControllerProvider.notifier)
           .addCompleted(
             title: paths.length == 1
-                ? 'WhatsApp status'
-                : 'WhatsApp statuses (${paths.length})',
+                ? tr('WhatsApp status')
+                : tr('WhatsApp statuses (${paths.length})'),
             platform: MediaPlatform.whatsapp,
             format: MediaFormat(
               id: 'whatsapp_status',
@@ -110,8 +113,8 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
                   ? MediaFormatKind.video
                   : MediaFormatKind.gallery,
               label: paths.length == 1
-                  ? (videos == 1 ? 'Video' : 'Photo')
-                  : '${paths.length} files',
+                  ? (videos == 1 ? tr('Video') : tr('Photo'))
+                  : tr('${paths.length} files'),
               itemCount: paths.length,
               imageCount: photos,
               videoCount: videos,
@@ -124,13 +127,17 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
         SnackBar(
           content: Text(
             paths.length == 1
-                ? 'Saved to the Vault and your gallery.'
-                : '${paths.length} statuses saved to the Vault and your gallery.',
+                ? tr('Saved to the Vault and your gallery.')
+                : tr(
+                    '${paths.length} statuses saved to the Vault and your gallery.',
+                  ),
           ),
         ),
       );
     } catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text('Couldn’t save: $error')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(tr('Couldn’t save: $error'))),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -140,7 +147,7 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
   Widget build(BuildContext context) {
     final access = ref.watch(statusAccessProvider);
     final statuses = ref.watch(statusListProvider);
-    final items = statuses.value ?? const <WhatsAppStatus>[];
+    final items = statuses.value ?? <WhatsAppStatus>[];
     final granted = access.value ?? false;
     final photos = [
       for (final status in items)
@@ -157,27 +164,30 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
         appBar: AppBar(
           title: Text(
             _selected.isEmpty
-                ? 'WhatsApp statuses'
-                : '${_selected.length} selected',
+                ? tr('WhatsApp statuses')
+                : tr('${_selected.length} selected'),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           actions: [
             if (granted) ...[
               IconButton(
                 onPressed: () => ref.invalidate(statusListProvider),
-                tooltip: 'Refresh',
+                tooltip: tr('Refresh'),
                 icon: const Icon(Icons.refresh_rounded),
               ),
               PopupMenuButton<String>(
-                tooltip: 'More',
+                tooltip: tr('More'),
                 onSelected: (_) async {
                   await ref
                       .read(deviceFilesServiceProvider)
                       .forgetStatusFolder();
                   ref.invalidate(statusAccessProvider);
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'forget', child: Text('Remove access')),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'forget',
+                    child: Text(tr('Remove access')),
+                  ),
                 ],
               ),
             ],
@@ -198,7 +208,7 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
                           )
                         : const Icon(Icons.download_rounded, size: 20),
                     label: Text(
-                      _saving ? 'Saving…' : 'Save ${_selected.length}',
+                      _saving ? tr('Saving…') : tr('Save ${_selected.length}'),
                     ),
                   ),
                 ),
@@ -211,22 +221,23 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
           ),
           _ when statuses.hasError => EmptyState(
             icon: Icons.error_outline_rounded,
-            title: 'Couldn’t read the statuses',
+            title: tr('Couldn’t read the statuses'),
             message: '${statuses.error}',
           ),
-          _ when items.isEmpty => const EmptyState(
+          _ when items.isEmpty => EmptyState(
             icon: Icons.chat_bubble_outline_rounded,
-            title: 'No statuses yet',
-            message:
-                'Open WhatsApp and view a status first. WhatsApp keeps viewed '
-                'statuses for about a day, then they appear here.',
+            title: tr('No statuses yet'),
+            message: tr(
+              'Open WhatsApp and view a status first. WhatsApp keeps viewed '
+              'statuses for about a day, then they appear here.',
+            ),
           ),
           _ => Column(
             children: [
               TabBar(
                 tabs: [
-                  Tab(text: 'Photos (${photos.length})'),
-                  Tab(text: 'Videos (${videos.length})'),
+                  Tab(text: tr('Photos (${photos.length})')),
+                  Tab(text: tr('Videos (${videos.length})')),
                 ],
               ),
               Expanded(
@@ -239,11 +250,12 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
                                   ? Icons.image_outlined
                                   : Icons.movie_outlined,
                               title: identical(group, photos)
-                                  ? 'No photo statuses'
-                                  : 'No video statuses',
-                              message:
-                                  'View a status in WhatsApp first, then '
-                                  'refresh.',
+                                  ? tr('No photo statuses')
+                                  : tr('No video statuses'),
+                              message: tr(
+                                'View a status in WhatsApp first, then '
+                                'refresh.',
+                              ),
                             )
                           : GridView.builder(
                               padding: const EdgeInsets.fromLTRB(
@@ -321,8 +333,10 @@ class _Setup extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         Text(
-          'Save photos and videos from statuses you have viewed in WhatsApp. '
-          'Android needs your permission to read WhatsApp’s status folder, once.',
+          tr(
+            'Save photos and videos from statuses you have viewed in WhatsApp. '
+            'Android needs your permission to read WhatsApp’s status folder, once.',
+          ),
           style: TextStyle(color: AppColors.textMuted, height: 1.4),
         ),
         const SizedBox(height: 18),
@@ -331,9 +345,12 @@ class _Setup extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
             child: Column(
               children: [
-                step('1', 'Tap “Give access” below. A folder screen opens.'),
-                step('2', 'It should already show the “.Statuses” folder.'),
-                step('3', 'Tap “Use this folder”, then “Allow”.'),
+                step(
+                  '1',
+                  tr('Tap “Give access” below. A folder screen opens.'),
+                ),
+                step('2', tr('It should already show the “.Statuses” folder.')),
+                step('3', tr('Tap “Use this folder”, then “Allow”.')),
               ],
             ),
           ),
@@ -342,16 +359,16 @@ class _Setup extends StatelessWidget {
         FilledButton.icon(
           onPressed: () => onGrant(business: false),
           icon: const Icon(Icons.folder_open_rounded, size: 20),
-          label: const Text('Give access'),
+          label: Text(tr('Give access')),
         ),
         const SizedBox(height: 10),
         OutlinedButton(
           onPressed: () => onGrant(business: true),
-          child: const Text('I use WhatsApp Business'),
+          child: Text(tr('I use WhatsApp Business')),
         ),
         const SizedBox(height: 16),
         Text(
-          'Only save statuses you have permission to keep.',
+          tr('Only save statuses you have permission to keep.'),
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
         ),
@@ -506,7 +523,7 @@ class _StatusPreviewScreenState extends ConsumerState<_StatusPreviewScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Text(
-          status.isVideo ? 'Video status' : 'Photo status',
+          status.isVideo ? tr('Video status') : tr('Photo status'),
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
@@ -516,7 +533,7 @@ class _StatusPreviewScreenState extends ConsumerState<_StatusPreviewScreen> {
           child: FilledButton.icon(
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.download_rounded, size: 20),
-            label: Text('Save · ${formatBytes(status.size)}'),
+            label: Text(tr('Save · ${formatBytes(status.size)}')),
           ),
         ),
       ),
@@ -528,7 +545,7 @@ class _StatusPreviewScreenState extends ConsumerState<_StatusPreviewScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  'This status could not be opened. It may have expired.',
+                  tr('This status could not be opened. It may have expired.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textMuted),
                 ),

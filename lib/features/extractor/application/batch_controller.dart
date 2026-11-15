@@ -4,6 +4,7 @@ import '../../../core/providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../domain/quality_selection.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// A link the batch could not queue, and why.
 class BatchFailure {
@@ -81,7 +82,7 @@ class BatchController extends Notifier<BatchState> {
         if (run != _run || !ref.mounted) return;
         final format = pickPreferredFormat(info, quality);
         if (format == null) {
-          failure = 'No ${quality.label} option for this link.';
+          failure = tr('No ${quality.label} option for this link.');
         } else {
           ref
               .read(downloadQueueControllerProvider.notifier)

@@ -14,6 +14,7 @@ import '../../extractor/domain/media_info.dart';
 import '../data/download_repository.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// The download queue and history: every task, newest first.
 ///
@@ -566,7 +567,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
           .read(galleryExportServiceProvider)
           .export(task.filePaths);
     } catch (_) {
-      copies = const {};
+      copies = {};
     }
     if (!ref.mounted || copies.isEmpty) return;
     final current = _find(task.id);
@@ -644,7 +645,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     final active = state.where((task) => task.isActive).toList();
     final running = active.where((task) => task.status.isRunning).toList();
 
-    var title = 'Downloading';
+    var title = tr('Downloading');
     var text = '';
     var progress = -1;
     if (active.length == 1) {
@@ -652,7 +653,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       text = _describe(active.single);
       progress = active.single.progressPercent.round();
     } else if (active.length > 1) {
-      title = 'Downloading ${active.length} items';
+      title = tr('Downloading ${active.length} items');
       if (running.isNotEmpty) {
         progress =
             (running.fold<double>(0, (sum, t) => sum + t.progressPercent) /
@@ -677,9 +678,9 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     switch (task.status) {
       case DownloadStatus.queued:
       case DownloadStatus.starting:
-        return 'Starting…';
+        return tr('Starting…');
       case DownloadStatus.processing:
-        return 'Finishing…';
+        return tr('Finishing…');
       default:
         final percent = '${task.progressPercent.round()}%';
         return task.speed.isEmpty ? percent : '$percent · ${task.speed}';

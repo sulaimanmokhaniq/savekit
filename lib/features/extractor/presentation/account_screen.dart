@@ -12,6 +12,7 @@ import '../../downloader/application/download_queue_controller.dart';
 import '../application/batch_controller.dart';
 import '../domain/media_format.dart';
 import '../domain/media_info.dart';
+import '../../../core/l10n/l10n.dart';
 
 enum _Filter { all, photos, videos }
 
@@ -111,19 +112,21 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Download ${chosen.length} items?'),
+          title: Text(tr('Download ${chosen.length} items?')),
           content: Text(
-            'Downloading this many at once from ${_platform.label} can get '
-            'your account temporarily limited. Smaller batches are safer.',
+            tr(
+              'Downloading this many at once from ${_platform.label} can get '
+              'your account temporarily limited. Smaller batches are safer.',
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(tr('Cancel')),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Download anyway'),
+              child: Text(tr('Download anyway')),
             ),
           ],
         ),
@@ -146,7 +149,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               url: widget.url,
               title: direct.length == 1
                   ? (direct.single.title ?? name)
-                  : '$name · ${direct.length} files',
+                  : tr('$name · ${direct.length} files'),
               platform: _platform,
               uploader: _title,
               thumbnail: direct
@@ -157,8 +160,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               id: 'account',
               kind: MediaFormatKind.gallery,
               label: direct.length == 1
-                  ? (videos == 1 ? 'Video' : 'Photo')
-                  : '${direct.length} files',
+                  ? (videos == 1 ? tr('Video') : tr('Photo'))
+                  : tr('${direct.length} files'),
               engine: DownloadEngineKind.direct,
               itemCount: direct.length,
               imageCount: direct.length - videos,
@@ -206,8 +209,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             Flexible(
               child: Text(
                 _selected.isEmpty
-                    ? (_title ?? 'Account')
-                    : '${_selected.length} selected',
+                    ? (_title ?? tr('Account'))
+                    : tr('${_selected.length} selected'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -227,7 +230,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     ? _selected.removeAll(urls)
                     : _selected.addAll(urls);
               }),
-              child: Text(allVisibleSelected ? 'Clear' : 'Select all'),
+              child: Text(allVisibleSelected ? tr('Clear') : tr('Select all')),
             ),
           const SizedBox(width: 4),
         ],
@@ -240,7 +243,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 child: FilledButton.icon(
                   onPressed: _download,
                   icon: const Icon(Icons.download_rounded, size: 20),
-                  label: Text('Download ${_selected.length}'),
+                  label: Text(tr('Download ${_selected.length}')),
                 ),
               ),
             ),
@@ -252,13 +255,15 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                         ? Icons.photo_library_outlined
                         : Icons.error_outline_rounded,
                     title: _error == null
-                        ? 'Nothing to show'
-                        : 'Couldn’t read this account',
+                        ? tr('Nothing to show')
+                        : tr('Couldn’t read this account'),
                     message:
                         _error ??
-                        'No photos or videos were found. If the account is '
-                            'private, log in under Settings → Platform '
-                            'Accounts.',
+                        tr(
+                          'No photos or videos were found. If the account is '
+                          'private, log in under Settings → Platform '
+                          'Accounts.',
+                        ),
                   )
           : CustomScrollView(
               slivers: [
@@ -269,10 +274,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       child: Wrap(
                         spacing: 8,
                         children: [
-                          for (final (filter, label) in const [
-                            (_Filter.all, 'All'),
-                            (_Filter.photos, 'Photos'),
-                            (_Filter.videos, 'Videos'),
+                          for (final (filter, label) in [
+                            (_Filter.all, tr('All')),
+                            (_Filter.photos, tr('Photos')),
+                            (_Filter.videos, tr('Videos')),
                           ])
                             ChoiceChip(
                               label: Text(label),
@@ -317,17 +322,17 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           )
                         : _error != null
                         ? Text(
-                            'Couldn’t load more: $_error',
+                            tr('Couldn’t load more: $_error'),
                             textAlign: TextAlign.center,
                             style: TextStyle(color: AppColors.danger),
                           )
                         : _hasMore
                         ? OutlinedButton(
                             onPressed: _load,
-                            child: const Text('Load more'),
+                            child: Text(tr('Load more')),
                           )
                         : Text(
-                            '${_items.length} items · that’s everything',
+                            tr('${_items.length} items · that’s everything'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: AppColors.textMuted,
@@ -355,13 +360,13 @@ class _Loading extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 18),
-            const Text(
-              'Reading the account…',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            Text(
+              tr('Reading the account…'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
-              'Listing recent posts can take a minute.',
+              tr('Listing recent posts can take a minute.'),
               style: TextStyle(color: AppColors.textMuted),
             ),
           ],
@@ -387,7 +392,7 @@ class _ItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       selected: selected,
-      label: item.title ?? (item.isVideo ? 'Video' : 'Photo'),
+      label: item.title ?? (item.isVideo ? tr('Video') : tr('Photo')),
       child: Material(
         color: AppColors.surfaceHigh,
         shape: RoundedRectangleBorder(

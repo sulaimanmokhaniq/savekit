@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/platform_account.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// The platform's own login page in an in-app browser. The password goes to
 /// the platform, not to SaveKit; what SaveKit keeps is the resulting session
@@ -47,7 +48,7 @@ class _LoginWebViewScreenState extends ConsumerState<LoginWebViewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Log in to ${widget.account.label}',
+          tr('Log in to ${widget.account.label}'),
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         bottom: PreferredSize(
@@ -91,8 +92,10 @@ class _LoginWebViewScreenState extends ConsumerState<LoginWebViewScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You are signing in on the platform’s own page. '
-                      'This screen closes by itself when you are in.',
+                      tr(
+                        'You are signing in on the platform’s own page. '
+                        'This screen closes by itself when you are in.',
+                      ),
                       style: TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12,

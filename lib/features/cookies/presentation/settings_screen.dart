@@ -10,6 +10,7 @@ import '../../vault/application/vault_lock.dart';
 import '../application/accounts_controller.dart';
 import '../domain/platform_account.dart';
 import 'login_webview_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Settings & Platform Logins: account cards and the extractor versions.
 class SettingsScreen extends ConsumerWidget {
@@ -27,7 +28,7 @@ class SettingsScreen extends ConsumerWidget {
     await ref.read(accountsControllerProvider.notifier).refresh();
     if (signedIn == true) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Signed in to ${account.label}.')),
+        SnackBar(content: Text(tr('Signed in to ${account.label}.'))),
       );
     }
   }
@@ -43,9 +44,9 @@ class SettingsScreen extends ConsumerWidget {
     final lock = ref.read(vaultLockServiceProvider);
     if (!await lock.isAvailable()) {
       messenger.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Set up a screen lock or fingerprint on this phone first.',
+            tr('Set up a screen lock or fingerprint on this phone first.'),
           ),
         ),
       );
@@ -53,8 +54,8 @@ class SettingsScreen extends ConsumerWidget {
     }
     final confirmed = await lock.authenticate(
       enabled
-          ? 'Confirm to lock the Vault'
-          : 'Confirm to remove the Vault lock',
+          ? tr('Confirm to lock the Vault')
+          : tr('Confirm to remove the Vault lock'),
     );
     if (!confirmed) return;
     ref.read(settingsControllerProvider.notifier).setLockVault(enabled);
@@ -70,11 +71,11 @@ class SettingsScreen extends ConsumerWidget {
     final settingsController = ref.read(settingsControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(tr('Settings'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          const _SectionTitle('THEME'),
+          _SectionTitle(tr('THEME')),
           _ThemePicker(
             selectedId: settings.themeId,
             onSelect: settingsController.setTheme,
@@ -85,28 +86,45 @@ class SettingsScreen extends ConsumerWidget {
               value: settings.matchIcon,
               onChanged: settingsController.setMatchIcon,
               secondary: Icon(Icons.apps_rounded, color: AppColors.textMuted),
-              title: const Text('Match the app icon'),
+              title: Text(tr('Match the app icon')),
               subtitle: Text(
-                'The icon on your home screen takes the theme’s colour. '
-                'It can take a few seconds to change.',
+                tr(
+                  'The icon on your home screen takes the theme’s colour. '
+                  'It can take a few seconds to change.',
+                ),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          Card(
+            child: _ChoiceRow<AppLanguage>(
+              icon: Icons.language_rounded,
+              title: tr('Language'),
+              subtitle: tr('The language of SaveKit’s own text.'),
+              value: settings.language,
+              values: AppLanguage.values,
+              // Each language is named in itself, so it can always be found.
+              labelOf: (value) =>
+                  value == AppLanguage.system ? tr(value.label) : value.label,
+              onChanged: settingsController.setLanguage,
+            ),
+          ),
           const SizedBox(height: 22),
-          const _SectionTitle('DOWNLOADS'),
+          _SectionTitle(tr('DOWNLOADS')),
           Card(
             child: Column(
               children: [
                 _ChoiceRow<QualityPreference>(
                   icon: Icons.bolt_rounded,
-                  title: 'One-tap download',
-                  subtitle:
-                      'Quality used when you share a link to SaveKit, '
-                      'skipping the picker.',
+                  title: tr('One-tap download'),
+                  subtitle: tr(
+                    'Quality used when you share a link to SaveKit, '
+                    'skipping the picker.',
+                  ),
                   value: settings.oneTap,
                   values: QualityPreference.values,
-                  labelOf: (value) => value.label,
+                  labelOf: (value) => tr(value.label),
                   onChanged: settingsController.setOneTap,
                 ),
                 const Divider(),
@@ -117,9 +135,9 @@ class SettingsScreen extends ConsumerWidget {
                     Icons.wifi_rounded,
                     color: AppColors.textMuted,
                   ),
-                  title: const Text('Wi-Fi only'),
+                  title: Text(tr('Wi-Fi only')),
                   subtitle: Text(
-                    'Downloads wait until the phone is on Wi-Fi.',
+                    tr('Downloads wait until the phone is on Wi-Fi.'),
                     style: TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 12.5,
@@ -129,8 +147,8 @@ class SettingsScreen extends ConsumerWidget {
                 const Divider(),
                 _ChoiceRow<int>(
                   icon: Icons.layers_outlined,
-                  title: 'Downloads at once',
-                  subtitle: 'More is faster on a good connection.',
+                  title: tr('Downloads at once'),
+                  subtitle: tr('More is faster on a good connection.'),
                   value: settings.maxConcurrent,
                   values: const [1, 2, 3, 4, 5],
                   labelOf: (value) => '$value',
@@ -140,7 +158,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 22),
-          const _SectionTitle('PRIVACY'),
+          _SectionTitle(tr('PRIVACY')),
           Card(
             child: SwitchListTile(
               value: settings.lockVault,
@@ -149,20 +167,22 @@ class SettingsScreen extends ConsumerWidget {
                 Icons.fingerprint_rounded,
                 color: AppColors.textMuted,
               ),
-              title: const Text('Lock the Vault'),
+              title: Text(tr('Lock the Vault')),
               subtitle: Text(
-                'Ask for fingerprint, face or screen lock to open it.',
+                tr('Ask for fingerprint, face or screen lock to open it.'),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
               ),
             ),
           ),
           const SizedBox(height: 22),
-          const _SectionTitle('PLATFORM ACCOUNTS'),
+          _SectionTitle(tr('PLATFORM ACCOUNTS')),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'Log in to save stories, private or age-restricted posts. '
-              'Your session stays on this phone.',
+              tr(
+                'Log in to save stories, private or age-restricted posts. '
+                'Your session stays on this phone.',
+              ),
               style: TextStyle(color: AppColors.textMuted, height: 1.4),
             ),
           ),
@@ -179,7 +199,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: 18),
-          const _SectionTitle('EXTRACTORS'),
+          _SectionTitle(tr('EXTRACTORS')),
           _EngineCard(
             engine: engine,
             onUpdate: () async {
@@ -202,36 +222,42 @@ class SettingsScreen extends ConsumerWidget {
                 Icons.autorenew_rounded,
                 color: AppColors.textMuted,
               ),
-              title: const Text('Update automatically'),
+              title: Text(tr('Update automatically')),
               subtitle: Text(
                 settings.lastEngineUpdate == null
-                    ? 'Checks once a week when you open the app.'
-                    : 'Checks once a week. Last checked '
-                          '${_daysAgo(settings.lastEngineUpdate!)}.',
+                    ? tr('Checks once a week when you open the app.')
+                    : tr(
+                        'Checks once a week. Last checked '
+                        '${_daysAgo(settings.lastEngineUpdate!)}.',
+                      ),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
               ),
             ),
           ),
           const SizedBox(height: 18),
-          const _SectionTitle('STORAGE'),
+          _SectionTitle(tr('STORAGE')),
           Card(
             child: _ChoiceRow<SaveLocation>(
               icon: Icons.folder_outlined,
-              title: 'Keep downloads in',
+              title: tr('Keep downloads in'),
               subtitle: settings.saveLocation == SaveLocation.gallery
-                  ? 'Your gallery, under “SaveKit”. One copy; other apps '
-                        'can see it. Deleting it in SaveKit deletes it there.'
-                  : 'SaveKit only. One copy, hidden from the gallery and '
-                        'protected by the Vault lock.',
+                  ? tr(
+                      'Your gallery, under “SaveKit”. One copy; other apps '
+                      'can see it. Deleting it in SaveKit deletes it there.',
+                    )
+                  : tr(
+                      'SaveKit only. One copy, hidden from the gallery and '
+                      'protected by the Vault lock.',
+                    ),
               value: settings.saveLocation,
               values: SaveLocation.values,
-              labelOf: (value) => value.label,
+              labelOf: (value) => tr(value.label),
               onChanged: settingsController.setSaveLocation,
             ),
           ),
           const SizedBox(height: 18),
           Text(
-            'Only download media you have the right to save.',
+            tr('Only download media you have the right to save.'),
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
@@ -318,10 +344,10 @@ class _AccountCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           status == null
-                              ? 'Checking…'
+                              ? tr('Checking…')
                               : status
-                              ? 'Signed in'
-                              : 'Not signed in',
+                              ? tr('Signed in')
+                              : tr('Not signed in'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -336,12 +362,12 @@ class _AccountCard extends StatelessWidget {
               ),
             ),
             if (status == true)
-              OutlinedButton(onPressed: onLogout, child: const Text('Log out'))
+              OutlinedButton(onPressed: onLogout, child: Text(tr('Log out')))
             else
               FilledButton(
                 onPressed: status == null ? null : onLogin,
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                child: const Text('Log in'),
+                child: Text(tr('Log in')),
               ),
           ],
         ),
@@ -367,26 +393,26 @@ class _EngineCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: engine.when(
-          loading: () => const Row(
+          loading: () => Row(
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              SizedBox(width: 12),
-              Text('Preparing the engine…'),
+              const SizedBox(width: 12),
+              Text(tr('Preparing the engine…')),
             ],
           ),
           error: (error, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'The engine failed to start: $error',
+                tr('The engine failed to start: $error'),
                 style: TextStyle(color: AppColors.danger, height: 1.4),
               ),
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+              OutlinedButton(onPressed: onRetry, child: Text(tr('Retry'))),
             ],
           ),
           data: (state) => Column(
@@ -394,7 +420,7 @@ class _EngineCard extends StatelessWidget {
             children: [
               _VersionRow(
                 name: 'yt-dlp',
-                detail: 'Video and audio',
+                detail: tr('Video and audio'),
                 version: state.version,
               ),
               const Padding(
@@ -403,7 +429,7 @@ class _EngineCard extends StatelessWidget {
               ),
               _VersionRow(
                 name: 'gallery-dl',
-                detail: 'Photos and carousels',
+                detail: tr('Photos and carousels'),
                 version: state.galleryVersion,
               ),
               const SizedBox(height: 14),
@@ -417,7 +443,7 @@ class _EngineCard extends StatelessWidget {
                       )
                     : const Icon(Icons.system_update_alt_rounded, size: 20),
                 label: Text(
-                  state.isUpdating ? 'Updating…' : 'Update extractors',
+                  state.isUpdating ? tr('Updating…') : tr('Update extractors'),
                 ),
               ),
               if (state.lastUpdateMessage != null) ...[
@@ -434,7 +460,7 @@ class _EngineCard extends StatelessWidget {
               ],
               const SizedBox(height: 8),
               Text(
-                'Update when a site stops working; platforms change often.',
+                tr('Update when a site stops working; platforms change often.'),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ],
@@ -487,9 +513,9 @@ class _VersionRow extends StatelessWidget {
 
 String _daysAgo(DateTime when) {
   final days = DateTime.now().difference(when).inDays;
-  if (days <= 0) return 'today';
-  if (days == 1) return 'yesterday';
-  return '$days days ago';
+  if (days <= 0) return tr('today');
+  if (days == 1) return tr('yesterday');
+  return tr('$days days ago');
 }
 
 /// The selectable colour themes, each previewed with its own colours.
@@ -513,7 +539,7 @@ class _ThemePicker extends StatelessWidget {
           return Semantics(
             button: true,
             selected: selected,
-            label: '${palette.name} theme',
+            label: tr('${palette.name} theme'),
             child: InkWell(
               onTap: () => onSelect(palette.id),
               borderRadius: BorderRadius.circular(AppRadius.card),

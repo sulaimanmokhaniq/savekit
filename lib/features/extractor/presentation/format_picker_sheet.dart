@@ -9,6 +9,7 @@ import '../../downloader/application/download_queue_controller.dart';
 import '../application/extraction_controller.dart';
 import '../domain/media_format.dart';
 import '../domain/media_info.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// What happened in the picker.
 enum FormatPickerResult { queued, openAccounts }
@@ -80,9 +81,9 @@ class _Loading extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2.6),
           ),
           const SizedBox(height: 18),
-          const Text(
-            'Reading link…',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          Text(
+            tr('Reading link…'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
@@ -112,10 +113,10 @@ class _Failed extends ConsumerWidget {
         children: [
           Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 32),
           const SizedBox(height: 12),
-          const Text(
-            'Couldn’t read this link',
+          Text(
+            tr('Couldn’t read this link'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
@@ -131,7 +132,7 @@ class _Failed extends ConsumerWidget {
               onPressed: () =>
                   Navigator.of(context).pop(FormatPickerResult.openAccounts),
               icon: const Icon(Icons.login_rounded, size: 20),
-              label: const Text('Log in to this platform'),
+              label: Text(tr('Log in to this platform')),
             ),
             const SizedBox(height: 10),
           ],
@@ -139,7 +140,7 @@ class _Failed extends ConsumerWidget {
             onPressed: () => ref
                 .read(extractionControllerProvider.notifier)
                 .fetch(state.url),
-            child: const Text('Try again'),
+            child: Text(tr('Try again')),
           ),
         ],
       ),
@@ -242,9 +243,9 @@ class _PickerState extends ConsumerState<_Picker> {
                 ButtonSegment(
                   value: tab,
                   label: Text(switch (tab) {
-                    _Tab.video => 'Video',
-                    _Tab.photos => 'Photos',
-                    _Tab.audio => 'Audio',
+                    _Tab.video => tr('Video'),
+                    _Tab.photos => tr('Photos'),
+                    _Tab.audio => tr('Audio'),
                   }),
                   icon: Icon(switch (tab) {
                     _Tab.video => Icons.videocam_outlined,
@@ -268,7 +269,7 @@ class _PickerState extends ConsumerState<_Picker> {
           children: [
             for (final option in options)
               ChoiceChip(
-                label: Text(option.label),
+                label: Text(tr(option.label)),
                 selected: option.id == _selected.id,
                 onSelected: (_) => setState(() => _selected = option),
               ),
@@ -296,11 +297,13 @@ class _PickerState extends ConsumerState<_Picker> {
           icon: const Icon(Icons.download_rounded, size: 20),
           label: Text(
             _canTrim && _clip != null
-                ? 'Download clip · '
-                      '${formatClock((_clip!.end - _clip!.start).round())}'
+                ? tr(
+                    'Download clip · '
+                    '${formatClock((_clip!.end - _clip!.start).round())}',
+                  )
                 : size.isEmpty
-                ? 'Download'
-                : 'Download · about $size',
+                ? tr('Download')
+                : tr('Download · about $size'),
           ),
         ),
       ],
@@ -338,9 +341,11 @@ class _TrimControl extends StatelessWidget {
             Expanded(
               child: Text(
                 range == null
-                    ? 'Trim'
-                    : 'Trim · ${formatClock(range.start.round())} to '
-                          '${formatClock(range.end.round())}',
+                    ? tr('Trim')
+                    : tr(
+                        'Trim · ${formatClock(range.start.round())} to '
+                        '${formatClock(range.end.round())}',
+                      ),
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -366,8 +371,10 @@ class _TrimControl extends StatelessWidget {
             },
           ),
           Text(
-            'Cuts at the nearest clean frame, so the clip can start or end '
-            'a few seconds off.',
+            tr(
+              'Cuts at the nearest clean frame, so the clip can start or end '
+              'a few seconds off.',
+            ),
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
@@ -392,19 +399,19 @@ class _SubtitleControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final choice = selected;
     final label = choice == null
-        ? 'None'
+        ? tr('None')
         : choice.$2
-        ? '${languageName(choice.$1)} (automatic)'
+        ? tr('${languageName(choice.$1)} (automatic)')
         : languageName(choice.$1);
 
     // A menu reports nothing when a null item is picked, so "None" is an
     // empty language.
     return PopupMenuButton<(String, bool)>(
-      tooltip: 'Subtitles',
+      tooltip: tr('Subtitles'),
       position: PopupMenuPosition.under,
       onSelected: (value) => onChanged(value.$1.isEmpty ? null : value),
       itemBuilder: (_) => [
-        const PopupMenuItem(value: ('', false), child: Text('None')),
+        PopupMenuItem(value: ('', false), child: Text(tr('None'))),
         for (final language in info.subtitleLanguages)
           PopupMenuItem(
             value: (language, false),
@@ -414,7 +421,7 @@ class _SubtitleControl extends StatelessWidget {
           if (!info.subtitleLanguages.contains(language))
             PopupMenuItem(
               value: (language, true),
-              child: Text('${languageName(language)} (automatic)'),
+              child: Text(tr('${languageName(language)} (automatic)')),
             ),
       ],
       child: Padding(
@@ -427,10 +434,10 @@ class _SubtitleControl extends StatelessWidget {
               color: AppColors.textMuted,
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Subtitles',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                tr('Subtitles'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             Text(

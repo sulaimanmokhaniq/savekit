@@ -14,6 +14,7 @@ import '../../downloader/domain/download_task.dart';
 import '../../tools/presentation/converter_screen.dart';
 import '../application/vault_lock.dart';
 import 'media_viewer_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Media Vault: finished downloads. Searchable, sortable, filterable by
 /// platform, as a grid or list, with multi-select and an optional lock.
@@ -51,7 +52,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   Future<void> _unlock() async {
     final ok = await ref
         .read(vaultLockServiceProvider)
-        .authenticate('Unlock your Vault');
+        .authenticate(tr('Unlock your Vault'));
     if (ok) ref.read(vaultUnlockedProvider.notifier).unlock();
   }
 
@@ -64,7 +65,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This file could not be shared.')),
+        SnackBar(content: Text(tr('This file could not be shared.'))),
       );
     }
   }
@@ -77,22 +78,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           tasks.length == 1
-              ? 'Delete this download?'
-              : 'Delete ${tasks.length} downloads?',
+              ? tr('Delete this download?')
+              : tr('Delete ${tasks.length} downloads?'),
         ),
-        content: const Text(
-          'This deletes it everywhere on this phone: from SaveKit and from '
-          'your gallery. It cannot be undone.',
+        content: Text(
+          tr(
+            'This deletes it everywhere on this phone: from SaveKit and from '
+            'your gallery. It cannot be undone.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Delete'),
+            child: Text(tr('Delete')),
           ),
         ],
       ),
@@ -103,10 +106,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         .removeAll(tasks.map((task) => task.id));
     if (!everywhere && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Removed from SaveKit, but a gallery copy could not be deleted. '
-            'Delete it from your gallery app.',
+            tr(
+              'Removed from SaveKit, but a gallery copy could not be deleted. '
+              'Delete it from your gallery app.',
+            ),
           ),
         ),
       );
@@ -123,8 +128,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Converting to MP3. Follow it in the Queue.'),
+        SnackBar(
+          content: Text(tr('Converting to MP3. Follow it in the Queue.')),
         ),
       );
   }
@@ -200,13 +205,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         leading: selecting
             ? IconButton(
                 onPressed: () => setState(_selected.clear),
-                tooltip: 'Cancel selection',
+                tooltip: tr('Cancel selection'),
                 icon: const Icon(Icons.close_rounded),
               )
             : null,
         title: selecting
             ? Text(
-                '${selected.length} selected',
+                tr('${selected.length} selected'),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -218,34 +223,34 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 autofocus: true,
                 onChanged: (value) => setState(() => _query = value),
                 style: const TextStyle(fontSize: 16),
-                decoration: const InputDecoration(
-                  hintText: 'Search your vault',
+                decoration: InputDecoration(
+                  hintText: tr('Search your vault'),
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
                   ),
                 ),
               )
-            : const Text('Vault'),
+            : Text(tr('Vault')),
         actions: [
           if (selecting) ...[
             IconButton(
               onPressed: () => setState(
                 () => _selected.addAll(tasks.map((task) => task.id)),
               ),
-              tooltip: 'Select all',
+              tooltip: tr('Select all'),
               icon: const Icon(Icons.select_all_rounded),
             ),
             IconButton(
               onPressed: () =>
                   _share([for (final task in selected) ...task.filePaths]),
-              tooltip: 'Share selected',
+              tooltip: tr('Share selected'),
               icon: const Icon(Icons.share_outlined),
             ),
             IconButton(
               onPressed: () => _delete(selected),
-              tooltip: 'Delete selected',
+              tooltip: tr('Delete selected'),
               icon: const Icon(Icons.delete_outline_rounded),
             ),
           ] else if (all.isNotEmpty) ...[
@@ -257,24 +262,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   _query = '';
                 }
               }),
-              tooltip: _searching ? 'Close search' : 'Search',
+              tooltip: _searching ? tr('Close search') : tr('Search'),
               icon: Icon(
                 _searching ? Icons.search_off_rounded : Icons.search_rounded,
               ),
             ),
             PopupMenuButton<VaultSort>(
-              tooltip: 'Sort',
+              tooltip: tr('Sort'),
               icon: const Icon(Icons.sort_rounded),
               initialValue: settings.vaultSort,
               onSelected: settingsController.setVaultSort,
               itemBuilder: (_) => [
                 for (final sort in VaultSort.values)
-                  PopupMenuItem(value: sort, child: Text(sort.label)),
+                  PopupMenuItem(value: sort, child: Text(tr(sort.label))),
               ],
             ),
             IconButton(
               onPressed: () => settingsController.setVaultGrid(!grid),
-              tooltip: grid ? 'Show as list' : 'Show as grid',
+              tooltip: grid ? tr('Show as list') : tr('Show as grid'),
               icon: Icon(
                 grid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
               ),
@@ -284,11 +289,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ],
       ),
       body: all.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.video_library_outlined,
-              title: 'Your vault is empty',
-              message:
-                  'Finished downloads are kept here to play, share or delete.',
+              title: tr('Your vault is empty'),
+              message: tr(
+                'Finished downloads are kept here to play, share or delete.',
+              ),
             )
           : Column(
               children: [
@@ -302,7 +308,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: const Text('All'),
+                            label: Text(tr('All')),
                             selected: filter == null,
                             onSelected: (_) => setState(() => _filter = null),
                           ),
@@ -318,7 +324,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                     ? AppColors.onAccent
                                     : platformStyle(platform).color,
                               ),
-                              label: Text(platform.label),
+                              label: Text(tr(platform.label)),
                               selected: filter == platform,
                               onSelected: (_) =>
                                   setState(() => _filter = platform),
@@ -329,10 +335,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ),
                 Expanded(
                   child: tasks.isEmpty
-                      ? const EmptyState(
+                      ? EmptyState(
                           icon: Icons.search_off_rounded,
-                          title: 'Nothing matches',
-                          message: 'Try another search or filter.',
+                          title: tr('Nothing matches'),
+                          message: tr('Try another search or filter.'),
                         )
                       : grid
                       ? GridView.builder(
@@ -421,7 +427,7 @@ class _LockedVault extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Vault')),
+      appBar: AppBar(title: Text(tr('Vault'))),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -434,13 +440,16 @@ class _LockedVault extends StatelessWidget {
                 color: AppColors.accent,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'The Vault is locked',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              Text(
+                tr('The Vault is locked'),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
-                'Confirm it’s you to see your downloads.',
+                tr('Confirm it’s you to see your downloads.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textMuted),
               ),
@@ -448,7 +457,7 @@ class _LockedVault extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onUnlock,
                 icon: const Icon(Icons.fingerprint_rounded, size: 20),
-                label: const Text('Unlock'),
+                label: Text(tr('Unlock')),
               ),
             ],
           ),
@@ -480,7 +489,7 @@ String? _localThumbnail(DownloadTask task) {
 }
 
 String _subtitle(DownloadTask task) => [
-  task.format.label,
+  tr(task.format.label),
   if (formatBytes(task.fileSize).isNotEmpty) formatBytes(task.fileSize),
 ].join(' · ');
 
@@ -525,7 +534,7 @@ class _Menu extends StatelessWidget {
     );
 
     return PopupMenuButton<String>(
-      tooltip: 'More',
+      tooltip: tr('More'),
       padding: EdgeInsets.zero,
       icon: Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
       onSelected: (value) => switch (value) {
@@ -535,14 +544,14 @@ class _Menu extends StatelessWidget {
         _ => onDelete(),
       },
       itemBuilder: (_) => [
-        item('share', Icons.share_outlined, 'Share'),
-        item('select', Icons.check_circle_outline_rounded, 'Select'),
+        item('share', Icons.share_outlined, tr('Share')),
+        item('select', Icons.check_circle_outline_rounded, tr('Select')),
         if (onConvert != null)
-          item('convert', Icons.graphic_eq_rounded, 'Convert to audio'),
+          item('convert', Icons.graphic_eq_rounded, tr('Convert to audio')),
         item(
           'delete',
           Icons.delete_outline_rounded,
-          'Delete',
+          tr('Delete'),
           color: AppColors.danger,
         ),
       ],

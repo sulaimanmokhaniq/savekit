@@ -4,6 +4,7 @@ import '../native/youtube_dl_native_service.dart';
 import '../network/connectivity_service.dart';
 import '../providers.dart';
 import '../settings/app_settings.dart';
+import '../l10n/l10n.dart';
 
 /// State of the on-device extractors.
 class EngineState {
@@ -81,8 +82,8 @@ class EngineController extends AsyncNotifier<EngineState> {
   /// actually installed something.
   Future<String> updateEngine({bool automatic = false}) async {
     final current = state.value;
-    if (current == null) return 'The engine is not ready yet.';
-    if (current.isUpdating) return 'An update is already running.';
+    if (current == null) return tr('The engine is not ready yet.');
+    if (current.isUpdating) return tr('An update is already running.');
     state = AsyncData(current.copyWith(isUpdating: true));
 
     final native = ref.read(nativeServiceProvider);
@@ -104,18 +105,18 @@ class EngineController extends AsyncNotifier<EngineState> {
     }
 
     final updated = <String>[
-      if (result?.updated ?? false) 'yt-dlp ${result!.version}',
+      if (result?.updated ?? false) tr('yt-dlp ${result!.version}'),
       if (result?.galleryUpdated ?? false)
-        'gallery-dl ${result!.galleryVersion}',
-      if (rulesUpdated) 'page rules',
+        tr('gallery-dl ${result!.galleryVersion}'),
+      if (rulesUpdated) tr('page rules'),
     ];
     final String message;
     if (engineError != null) {
-      message = 'Update failed: $engineError';
+      message = tr('Update failed: $engineError');
     } else if (updated.isEmpty) {
-      message = 'Everything is already up to date.';
+      message = tr('Everything is already up to date.');
     } else {
-      message = 'Updated ${updated.join(', ')}.';
+      message = tr('Updated ${updated.join(', ')}.');
     }
 
     if (!ref.mounted) return message;
@@ -132,7 +133,7 @@ class EngineController extends AsyncNotifier<EngineState> {
         lastUpdateMessage: quiet
             ? current.lastUpdateMessage
             : automatic
-            ? 'Updated automatically: ${updated.join(', ')}.'
+            ? tr('Updated automatically: ${updated.join(', ')}.')
             : message,
         lastUpdateFailed: !quiet && engineError != null,
       ),

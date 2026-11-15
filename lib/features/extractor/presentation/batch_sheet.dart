@@ -6,6 +6,7 @@ import '../../../core/providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/batch_controller.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Asks for one quality and queues several links at once: either [urls]
 /// pasted together, or every video of the playlist at [playlistUrl].
@@ -67,8 +68,8 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: playlist == null
           ? _body(
-              title: '${widget.urls.length} links',
-              subtitle: 'Each one is looked up and added to the queue.',
+              title: tr('${widget.urls.length} links'),
+              subtitle: tr('Each one is looked up and added to the queue.'),
               urls: widget.urls,
             )
           : FutureBuilder<PlaylistInfo>(
@@ -78,7 +79,7 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
                   return _Message(
                     icon: Icons.error_outline_rounded,
                     color: AppColors.danger,
-                    title: 'Couldn’t read this playlist',
+                    title: tr('Couldn’t read this playlist'),
                     message: snapshot.error.toString(),
                   );
                 }
@@ -87,7 +88,7 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
                   return _Message(
                     icon: null,
                     color: AppColors.accent,
-                    title: 'Reading playlist…',
+                    title: tr('Reading playlist…'),
                     message: widget.playlistUrl ?? '',
                   );
                 }
@@ -95,14 +96,14 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
                   return _Message(
                     icon: Icons.playlist_remove_rounded,
                     color: AppColors.textMuted,
-                    title: 'This playlist is empty',
+                    title: tr('This playlist is empty'),
                     message: info.title,
                   );
                 }
                 return _body(
                   title: info.title,
                   subtitle: [
-                    '${info.entries.length} videos',
+                    tr('${info.entries.length} videos'),
                     if (info.uploader != null) info.uploader!,
                   ].join(' · '),
                   urls: [for (final entry in info.entries) entry.url],
@@ -188,7 +189,7 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'DOWNLOAD AS',
+          tr('DOWNLOAD AS'),
           style: TextStyle(
             color: AppColors.textMuted,
             fontSize: 12,
@@ -203,7 +204,7 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
           children: [
             for (final quality in QualityPreference.automatic)
               ChoiceChip(
-                label: Text(quality.label),
+                label: Text(tr(quality.label)),
                 selected: quality == _quality,
                 onSelected: (_) => setState(() => _quality = quality),
               ),
@@ -213,7 +214,7 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
         FilledButton.icon(
           onPressed: () => _start(urls),
           icon: const Icon(Icons.download_rounded, size: 20),
-          label: Text('Download all (${urls.length})'),
+          label: Text(tr('Download all (${urls.length})')),
         ),
       ],
     );

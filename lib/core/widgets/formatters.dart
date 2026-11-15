@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 /// "1.4 GB", "820 KB"; empty when the size is unknown.
 String formatBytes(int? bytes) {
   if (bytes == null || bytes <= 0) return '';
@@ -26,11 +28,11 @@ String formatDuration(int? seconds) {
 /// "12s left", "4m 05s left"; empty when unknown.
 String formatEta(int seconds) {
   if (seconds < 0) return '';
-  if (seconds < 60) return '${seconds}s left';
+  if (seconds < 60) return tr('${seconds}s left');
   final m = seconds ~/ 60;
   final s = seconds % 60;
-  if (m < 60) return '${m}m ${s.toString().padLeft(2, '0')}s left';
-  return '${m ~/ 60}h ${(m % 60).toString().padLeft(2, '0')}m left';
+  if (m < 60) return tr('${m}m ${s.toString().padLeft(2, '0')}s left');
+  return tr('${m ~/ 60}h ${(m % 60).toString().padLeft(2, '0')}m left');
 }
 
 const _languageNames = {
@@ -58,7 +60,8 @@ String languageName(String code) {
   final parts = code.split(RegExp('[-_]'));
   final name = _languageNames[parts.first.toLowerCase()];
   if (name == null) return code;
-  return parts.length > 1 ? '$name (${parts.sublist(1).join('-')})' : name;
+  final shown = tr(name);
+  return parts.length > 1 ? '$shown (${parts.sublist(1).join('-')})' : shown;
 }
 
 /// "0:10" – always minutes and seconds, including for zero.

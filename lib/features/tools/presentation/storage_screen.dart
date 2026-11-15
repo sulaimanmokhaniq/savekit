@@ -8,6 +8,7 @@ import '../../../core/widgets/media_thumbnail.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../../downloader/data/gallery_export_service.dart';
 import '../application/storage_controller.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Storage manager: how much space SaveKit uses, every file with its size,
 /// sortable, with single and multi-select delete.
@@ -47,23 +48,25 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           paths.length == 1
-              ? 'Delete this file?'
-              : 'Delete ${paths.length} files?',
+              ? tr('Delete this file?')
+              : tr('Delete ${paths.length} files?'),
         ),
         content: Text(
-          'This deletes ${paths.length == 1 ? 'it' : 'them'} everywhere on '
-          'this phone: from SaveKit and from your gallery. It frees at least '
-          '${formatBytes(bytes)} and cannot be undone.',
+          tr(
+            'This deletes ${paths.length == 1 ? 'it' : 'them'} everywhere on '
+            'this phone: from SaveKit and from your gallery. It frees at least '
+            '${formatBytes(bytes)} and cannot be undone.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Delete'),
+            child: Text(tr('Delete')),
           ),
         ],
       ),
@@ -76,10 +79,12 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     setState(() => _selected.removeAll(paths));
     if (!everywhere) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Removed from SaveKit, but a gallery copy could not be deleted. '
-            'Delete it from your gallery app.',
+            tr(
+              'Removed from SaveKit, but a gallery copy could not be deleted. '
+              'Delete it from your gallery app.',
+            ),
           ),
         ),
       );
@@ -100,29 +105,29 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          selected.isEmpty ? 'Storage' : '${selected.length} selected',
+          selected.isEmpty ? tr('Storage') : tr('${selected.length} selected'),
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         actions: [
           if (selected.isNotEmpty)
             TextButton(
               onPressed: () => setState(_selected.clear),
-              child: const Text('Clear'),
+              child: Text(tr('Clear')),
             )
           else if (files.isNotEmpty)
             TextButton(
               onPressed: () =>
                   setState(() => _selected.addAll(files.map((f) => f.path))),
-              child: const Text('Select all'),
+              child: Text(tr('Select all')),
             ),
           PopupMenuButton<VaultSort>(
-            tooltip: 'Sort',
+            tooltip: tr('Sort'),
             icon: const Icon(Icons.sort_rounded),
             initialValue: _sort,
             onSelected: (sort) => setState(() => _sort = sort),
             itemBuilder: (_) => [
               for (final sort in VaultSort.values)
-                PopupMenuItem(value: sort, child: Text(sort.label)),
+                PopupMenuItem(value: sort, child: Text(tr(sort.label))),
             ],
           ),
           const SizedBox(width: 4),
@@ -141,7 +146,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
                   label: Text(
-                    'Delete ${selected.length} · ${formatBytes(selectedBytes)}',
+                    tr(
+                      'Delete ${selected.length} · ${formatBytes(selectedBytes)}',
+                    ),
                   ),
                 ),
               ),
@@ -160,10 +167,12 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         Icons.cleaning_services_outlined,
                         color: AppColors.warning,
                       ),
-                      title: const Text('Leftover partial files'),
+                      title: Text(tr('Leftover partial files')),
                       subtitle: Text(
-                        '${formatBytes(data.leftoverBytes)} from downloads '
-                        'that were canceled or removed.',
+                        tr(
+                          '${formatBytes(data.leftoverBytes)} from downloads '
+                          'that were canceled or removed.',
+                        ),
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 12.5,
@@ -171,7 +180,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       ),
                       trailing: TextButton(
                         onPressed: () => cleanLeftovers(ref, data),
-                        child: const Text('Clean up'),
+                        child: Text(tr('Clean up')),
                       ),
                     ),
                   ),
@@ -186,12 +195,16 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       ),
                       title: Text(
                         data.missingTaskIds.length == 1
-                            ? '1 download has no file'
-                            : '${data.missingTaskIds.length} downloads have no files',
+                            ? tr('1 download has no file')
+                            : tr(
+                                '${data.missingTaskIds.length} downloads have no files',
+                              ),
                       ),
                       subtitle: Text(
-                        'They were deleted outside SaveKit, for example from '
-                        'the gallery.',
+                        tr(
+                          'They were deleted outside SaveKit, for example from '
+                          'the gallery.',
+                        ),
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 12.5,
@@ -201,26 +214,30 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         onPressed: () => ref
                             .read(downloadQueueControllerProvider.notifier)
                             .removeAll(data.missingTaskIds),
-                        child: const Text('Remove'),
+                        child: Text(tr('Remove')),
                       ),
                     ),
                   ),
                 ],
                 const SizedBox(height: 18),
                 if (files.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 40),
                     child: EmptyState(
                       icon: Icons.folder_open_rounded,
-                      title: 'Nothing stored yet',
-                      message: 'Files you download are listed here with their sizes.',
+                      title: tr('Nothing stored yet'),
+                      message: tr(
+                        'Files you download are listed here with their sizes.',
+                      ),
                     ),
                   )
                 else ...[
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Text(
-                      '${files.length} FILES · ${_sort.label.toUpperCase()}',
+                      tr(
+                        '${files.length} FILES · ${tr(_sort.label).toUpperCase()}',
+                      ),
                       style: TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12,
@@ -256,22 +273,22 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     switch (kind) {
       SavedFileKind.video => (
         color: AppColors.accent,
-        label: 'Videos',
+        label: tr('Videos'),
         icon: Icons.movie_outlined,
       ),
       SavedFileKind.audio => (
         color: AppColors.success,
-        label: 'Audio',
+        label: tr('Audio'),
         icon: Icons.graphic_eq_rounded,
       ),
       SavedFileKind.image => (
         color: AppColors.warning,
-        label: 'Photos',
+        label: tr('Photos'),
         icon: Icons.image_outlined,
       ),
       SavedFileKind.other => (
         color: AppColors.textMuted,
-        label: 'Other',
+        label: tr('Other'),
         icon: Icons.insert_drive_file_outlined,
       ),
     };
@@ -296,7 +313,7 @@ class _Summary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'USED BY SAVEKIT',
+              tr('USED BY SAVEKIT'),
               style: TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 12,
@@ -452,7 +469,7 @@ class _FileRow extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onDelete,
-                tooltip: 'Delete',
+                tooltip: tr('Delete'),
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 color: AppColors.textMuted,
               ),

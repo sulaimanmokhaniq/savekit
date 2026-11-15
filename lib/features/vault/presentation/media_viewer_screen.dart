@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/formatters.dart';
 import '../../downloader/data/gallery_export_service.dart';
 import '../../downloader/domain/download_task.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Full-screen playback of a finished download: photos zoom, video and audio
 /// play. Multi-file posts page sideways.
@@ -55,7 +56,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             onPressed: files.isEmpty
                 ? null
                 : () => widget.onShare(files[_index]),
-            tooltip: 'Share',
+            tooltip: tr('Share'),
             icon: const Icon(Icons.share_outlined),
           ),
           IconButton(
@@ -63,7 +64,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               final navigator = Navigator.of(context);
               if (await widget.onDelete()) navigator.pop();
             },
-            tooltip: 'Delete',
+            tooltip: tr('Delete'),
             icon: const Icon(Icons.delete_outline_rounded),
           ),
         ],
@@ -92,7 +93,7 @@ class _Missing extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          'This file is no longer on the phone.',
+          tr('This file is no longer on the phone.'),
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textMuted),
         ),
@@ -129,7 +130,7 @@ class MediaFileView extends StatelessWidget {
       SavedFileKind.audio => _Player(path: path, audioOnly: true, title: title),
       SavedFileKind.other => Center(
         child: Text(
-          'This file type can’t be previewed. Use Share to open it.',
+          tr('This file type can’t be previewed. Use Share to open it.'),
           style: TextStyle(color: AppColors.textMuted),
         ),
       ),
@@ -202,7 +203,9 @@ class _PlayerState extends State<_Player> {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            'This file can’t be played here. Use Share to open it in another app.',
+            tr(
+              'This file can’t be played here. Use Share to open it in another app.',
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textMuted),
           ),
@@ -278,7 +281,7 @@ class _PlayerState extends State<_Player> {
                 IconButton(
                   onPressed: _toggle,
                   iconSize: 32,
-                  tooltip: value.isPlaying ? 'Pause' : 'Play',
+                  tooltip: value.isPlaying ? tr('Pause') : tr('Play'),
                   icon: Icon(
                     value.isPlaying
                         ? Icons.pause_rounded

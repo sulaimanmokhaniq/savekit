@@ -8,6 +8,7 @@ import '../../../core/widgets/platform_badge.dart';
 import '../application/download_queue_controller.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Queue & Active Downloads: live progress, with cancel and retry.
 class QueueScreen extends ConsumerWidget {
@@ -24,11 +25,11 @@ class QueueScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Queue'),
+        title: Text(tr('Queue')),
         actions: [
           if (hasActive || hasPaused || hasFailed)
             PopupMenuButton<String>(
-              tooltip: 'Queue actions',
+              tooltip: tr('Queue actions'),
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) => switch (value) {
                 'pause' => controller.pauseAll(),
@@ -37,16 +38,13 @@ class QueueScreen extends ConsumerWidget {
               },
               itemBuilder: (_) => [
                 if (hasActive)
-                  const PopupMenuItem(value: 'pause', child: Text('Pause all')),
+                  PopupMenuItem(value: 'pause', child: Text(tr('Pause all'))),
                 if (hasPaused)
-                  const PopupMenuItem(
-                    value: 'resume',
-                    child: Text('Resume all'),
-                  ),
+                  PopupMenuItem(value: 'resume', child: Text(tr('Resume all'))),
                 if (hasFailed)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'clear',
-                    child: Text('Clear failed'),
+                    child: Text(tr('Clear failed')),
                   ),
               ],
             ),
@@ -54,12 +52,13 @@ class QueueScreen extends ConsumerWidget {
         ],
       ),
       body: tasks.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.downloading_rounded,
-              title: 'Nothing downloading',
-              message:
-                  'Downloads you start show up here with live progress. '
-                  'Finished ones move to the Vault.',
+              title: tr('Nothing downloading'),
+              message: tr(
+                'Downloads you start show up here with live progress. '
+                'Finished ones move to the Vault.',
+              ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -82,11 +81,16 @@ class QueueScreen extends ConsumerWidget {
                             size: 20,
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Waiting for Wi-Fi. Downloads start when the '
-                              'phone is back on Wi-Fi.',
-                              style: TextStyle(fontSize: 13, height: 1.35),
+                              tr(
+                                'Waiting for Wi-Fi. Downloads start when the '
+                                'phone is back on Wi-Fi.',
+                              ),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                              ),
                             ),
                           ),
                         ],
@@ -173,7 +177,7 @@ class _TaskCard extends ConsumerWidget {
                     onPressed: () => task.canResume
                         ? controller.resume(task.id)
                         : controller.pause(task.id),
-                    tooltip: task.canResume ? 'Resume' : 'Pause',
+                    tooltip: task.canResume ? tr('Resume') : tr('Pause'),
                     icon: Icon(
                       task.canResume
                           ? Icons.play_arrow_rounded
@@ -186,7 +190,7 @@ class _TaskCard extends ConsumerWidget {
                   ),
                   IconButton(
                     onPressed: () => controller.cancel(task.id),
-                    tooltip: 'Cancel',
+                    tooltip: tr('Cancel'),
                     icon: const Icon(Icons.close_rounded),
                     color: AppColors.textMuted,
                     visualDensity: VisualDensity.compact,
@@ -194,7 +198,7 @@ class _TaskCard extends ConsumerWidget {
                 ] else
                   IconButton(
                     onPressed: () => controller.remove(task.id),
-                    tooltip: 'Remove',
+                    tooltip: tr('Remove'),
                     icon: const Icon(Icons.delete_outline_rounded),
                     color: AppColors.textMuted,
                   ),
@@ -226,7 +230,9 @@ class _TaskCard extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      failed ? (task.error ?? 'Download failed') : 'Canceled',
+                      failed
+                          ? (task.error ?? tr('Download failed'))
+                          : tr('Canceled'),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -240,7 +246,7 @@ class _TaskCard extends ConsumerWidget {
                   OutlinedButton.icon(
                     onPressed: () => controller.retry(task.id),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Retry'),
+                    label: Text(tr('Retry')),
                   ),
                 ],
               ),
@@ -263,16 +269,16 @@ class _ProgressLine extends StatelessWidget {
     final String right;
     switch (task.status) {
       case DownloadStatus.queued:
-        left = 'Waiting…';
+        left = tr('Waiting…');
         right = '';
       case DownloadStatus.paused:
-        left = 'Paused';
+        left = tr('Paused');
         right = '${task.progressPercent.round()}%';
       case DownloadStatus.starting:
-        left = 'Starting…';
+        left = tr('Starting…');
         right = '';
       case DownloadStatus.processing:
-        left = 'Finishing…';
+        left = tr('Finishing…');
         right = '${task.progressPercent.round()}%';
       default:
         left = [

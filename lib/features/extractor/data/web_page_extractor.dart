@@ -8,6 +8,7 @@ import '../../../core/platform/media_platform.dart';
 import '../domain/media_format.dart';
 import '../domain/media_info.dart';
 import 'web_extraction_rules.dart';
+import '../../../core/l10n/l10n.dart';
 
 class WebExtractionException implements Exception {
   const WebExtractionException(this.message, {this.loginRequired = false});
@@ -44,7 +45,7 @@ class WebPageSnapshot {
     final json = Map<String, dynamic>.from(jsonDecode(source) as Map);
     final candidates = <WebMediaCandidate>[];
 
-    for (final item in (json['images'] as List? ?? const []).whereType<Map>()) {
+    for (final item in (json['images'] as List? ?? []).whereType<Map>()) {
       final url = item['url'];
       if (url is! String || url.isEmpty) continue;
       candidates.add(
@@ -56,13 +57,12 @@ class WebPageSnapshot {
         ),
       );
     }
-    for (final url
-        in (json['videos'] as List? ?? const []).whereType<String>()) {
+    for (final url in (json['videos'] as List? ?? []).whereType<String>()) {
       candidates.add(
         WebMediaCandidate(url: url, source: 'video', isVideo: true),
       );
     }
-    for (final url in (json['data'] as List? ?? const []).whereType<String>()) {
+    for (final url in (json['data'] as List? ?? []).whereType<String>()) {
       candidates.add(WebMediaCandidate(url: url, source: 'data'));
     }
     for (final url in resourceUrls) {
@@ -114,7 +114,10 @@ class WebPageExtractor {
     final activeRule = finalRule.hostSuffix.isEmpty ? rule : finalRule;
     if (activeRule.isLoginWall(snapshot.finalUrl)) {
       throw WebExtractionException(
-        activeRule.loginHint ?? 'This post needs an account. Log in under Settings → Platform Accounts.',
+        activeRule.loginHint ??
+            tr(
+              'This post needs an account. Log in under Settings → Platform Accounts.',
+            ),
         loginRequired: true,
       );
     }
@@ -150,8 +153,8 @@ class WebPageExtractor {
     final videoCount = items.where((item) => item.isVideo).length;
     final imageCount = items.length - videoCount;
     final label = videoCount == 0
-        ? (items.length == 1 ? 'Photo' : 'Photos (${items.length})')
-        : 'All media (${items.length})';
+        ? (items.length == 1 ? tr('Photo') : tr('Photos (${items.length})'))
+        : tr('All media (${items.length})');
 
     final platform = MediaPlatform.fromUrl(snapshot.finalUrl);
     final author = snapshot.author;
@@ -160,7 +163,9 @@ class WebPageExtractor {
       webpageUrl: snapshot.finalUrl,
       title:
           snapshot.title ??
-          (author == null ? '${platform.label} post' : 'Post by $author'),
+          (author == null
+              ? tr('${platform.label} post')
+              : tr('Post by $author')),
       uploader: author,
       platform: platform,
       thumbnail: items

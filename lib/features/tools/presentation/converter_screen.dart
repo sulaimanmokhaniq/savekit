@@ -9,6 +9,7 @@ import '../../../core/widgets/formatters.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../../extractor/domain/media_format.dart';
 import '../../extractor/domain/media_info.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Queues a conversion of the video at [path] into [audioFormat] ("mp3" or
 /// "m4a"). It runs through the normal queue and lands in the Vault.
@@ -59,7 +60,7 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Couldn’t open that video: $error')),
+        SnackBar(content: Text(tr('Couldn’t open that video: $error'))),
       );
     } finally {
       if (mounted) setState(() => _picking = false);
@@ -79,9 +80,9 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Converting. Follow it in the Queue; it lands in the Vault.',
+            tr('Converting. Follow it in the Queue; it lands in the Vault.'),
           ),
         ),
       );
@@ -92,17 +93,19 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
     final video = _video;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Video to audio',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        title: Text(
+          tr('Video to audio'),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Text(
-            'Turn any video on this phone into an audio file. The conversion '
-            'runs on the phone; nothing is uploaded.',
+            tr(
+              'Turn any video on this phone into an audio file. The conversion '
+              'runs on the phone; nothing is uploaded.',
+            ),
             style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
           const SizedBox(height: 18),
@@ -118,9 +121,9 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
                           color: AppColors.textMuted,
                         ),
                         const SizedBox(height: 10),
-                        const Text(
-                          'No video chosen',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                        Text(
+                          tr('No video chosen'),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 14),
                         OutlinedButton.icon(
@@ -134,7 +137,9 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
                                   ),
                                 )
                               : const Icon(Icons.folder_open_rounded, size: 18),
-                          label: Text(_picking ? 'Opening…' : 'Choose a video'),
+                          label: Text(
+                            _picking ? tr('Opening…') : tr('Choose a video'),
+                          ),
                         ),
                       ],
                     )
@@ -178,7 +183,7 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
                         ),
                         TextButton(
                           onPressed: _picking ? null : _pick,
-                          child: const Text('Change'),
+                          child: Text(tr('Change')),
                         ),
                       ],
                     ),
@@ -186,7 +191,7 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'CONVERT TO',
+            tr('CONVERT TO'),
             style: TextStyle(
               color: AppColors.textMuted,
               fontSize: 12,
@@ -198,9 +203,9 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
           Wrap(
             spacing: 8,
             children: [
-              for (final (id, label) in const [
-                ('mp3', 'MP3 · plays everywhere'),
-                ('m4a', 'M4A · smaller file'),
+              for (final (id, label) in [
+                ('mp3', tr('MP3 · plays everywhere')),
+                ('m4a', tr('M4A · smaller file')),
               ])
                 ChoiceChip(
                   label: Text(label),
@@ -213,12 +218,14 @@ class _ConverterScreenState extends ConsumerState<ConverterScreen> {
           FilledButton.icon(
             onPressed: video == null ? null : _convert,
             icon: const Icon(Icons.graphic_eq_rounded, size: 20),
-            label: const Text('Convert to audio'),
+            label: Text(tr('Convert to audio')),
           ),
           const SizedBox(height: 12),
           Text(
-            'Tip: videos already in your Vault can be converted from the '
-            'three-dot menu on each item.',
+            tr(
+              'Tip: videos already in your Vault can be converted from the '
+              'three-dot menu on each item.',
+            ),
             style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
           ),
         ],

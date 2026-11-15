@@ -15,6 +15,7 @@ import '../features/extractor/presentation/format_picker_sheet.dart';
 import '../features/extractor/presentation/home_screen.dart';
 import '../features/tools/presentation/tools_screen.dart';
 import '../features/vault/presentation/vault_screen.dart';
+import '../core/l10n/l10n.dart';
 
 /// The four tabs, and the one place that opens the format picker: for links
 /// typed on Home, and for links shared to the app from elsewhere.
@@ -58,9 +59,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: const Text('Added to the queue.'),
+              content: Text(tr('Added to the queue.')),
               action: SnackBarAction(
-                label: 'View',
+                label: tr('View'),
                 onPressed: () => _select(_queue),
               ),
             ),
@@ -110,10 +111,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            count == 1 ? 'Added to the queue.' : '$count items on their way.',
+            count == 1
+                ? tr('Added to the queue.')
+                : tr('$count items on their way.'),
           ),
           action: SnackBarAction(
-            label: 'View',
+            label: tr('View'),
             onPressed: () => _select(_queue),
           ),
         ),
@@ -176,10 +179,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           selectedIndex: tab,
           onDestinationSelected: _select,
           destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+            NavigationDestination(
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home_rounded),
+              label: tr('Home'),
             ),
             NavigationDestination(
               icon: Badge(
@@ -187,22 +190,22 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 label: Text('$activeCount'),
                 child: const Icon(Icons.downloading_rounded),
               ),
-              label: 'Queue',
+              label: tr('Queue'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.video_library_outlined),
-              selectedIcon: Icon(Icons.video_library_rounded),
-              label: 'Vault',
+            NavigationDestination(
+              icon: const Icon(Icons.video_library_outlined),
+              selectedIcon: const Icon(Icons.video_library_rounded),
+              label: tr('Vault'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.handyman_outlined),
-              selectedIcon: Icon(Icons.handyman_rounded),
-              label: 'Tools',
+            NavigationDestination(
+              icon: const Icon(Icons.handyman_outlined),
+              selectedIcon: const Icon(Icons.handyman_rounded),
+              label: tr('Tools'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings_rounded),
-              label: 'Settings',
+            NavigationDestination(
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings_rounded),
+              label: tr('Settings'),
             ),
           ],
         ),
