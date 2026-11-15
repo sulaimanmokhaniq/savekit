@@ -402,7 +402,7 @@ class _StatusTile extends ConsumerStatefulWidget {
 class _StatusTileState extends ConsumerState<_StatusTile> {
   late final Future<Uint8List?> _thumbnail = ref
       .read(deviceFilesServiceProvider)
-      .statusThumbnail(widget.status.uri);
+      .statusThumbnail(widget.status.uri, isVideo: widget.status.isVideo);
 
   @override
   Widget build(BuildContext context) {

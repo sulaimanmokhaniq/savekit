@@ -4,7 +4,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Point
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
@@ -159,22 +161,82 @@ object DeviceFiles {
         return items
     }
 
-    /** A JPEG preview of a status, or null when Android cannot make one. */
-    fun statusThumbnail(context: Context, uri: Uri, size: Int): ByteArray? {
-        val bitmap = try {
-            DocumentsContract.getDocumentThumbnail(
-                context.contentResolver,
-                uri,
-                Point(size, size),
-                null,
-            )
-        } catch (_: Exception) {
-            null
-        } ?: return null
+    /**
+     * A JPEG preview of a status, or null when none can be made. Android rarely has a
+     * ready-made thumbnail for WhatsApp's hidden folder, so the preview is made here: a
+     * frame taken from a video, or the photo itself decoded at a small size.
+     */
+    fun statusThumbnail(context: Context, uri: Uri, size: Int, isVideo: Boolean): ByteArray? {
+        val bitmap = systemThumbnail(context, uri, size)
+            ?: (if (isVideo) videoFrame(context, uri) else decodePhoto(context, uri, size))
+            ?: return null
+        val scaled = scaleDown(bitmap, size)
         val bytes = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, bytes)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 82, bytes)
+        if (scaled !== bitmap) scaled.recycle()
         bitmap.recycle()
         return bytes.toByteArray()
+    }
+
+    private fun systemThumbnail(context: Context, uri: Uri, size: Int): Bitmap? = try {
+        DocumentsContract.getDocumentThumbnail(
+            context.contentResolver,
+            uri,
+            Point(size, size),
+            null,
+        )
+    } catch (_: Exception) {
+        null
+    }
+
+    /** A frame from near the start of a video. */
+    private fun videoFrame(context: Context, uri: Uri): Bitmap? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(context, uri)
+            // One second in avoids the black frame many videos open with.
+            retriever.getFrameAtTime(1_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                ?: retriever.getFrameAtTime(0L)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+                // Already released.
+            }
+        }
+    }
+
+    /** The photo decoded at roughly [size] pixels, without loading it full size. */
+    private fun decodePhoto(context: Context, uri: Uri, size: Int): Bitmap? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= size && bounds.outHeight / (sample * 2) >= size) {
+            sample *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Shrinks [bitmap] so its shorter side is about [size] pixels. */
+    private fun scaleDown(bitmap: Bitmap, size: Int): Bitmap {
+        val shorter = minOf(bitmap.width, bitmap.height)
+        if (shorter <= size || shorter == 0) return bitmap
+        val factor = size.toFloat() / shorter
+        return Bitmap.createScaledBitmap(
+            bitmap,
+            (bitmap.width * factor).toInt().coerceAtLeast(1),
+            (bitmap.height * factor).toInt().coerceAtLeast(1),
+            true,
+        )
     }
 
     /**

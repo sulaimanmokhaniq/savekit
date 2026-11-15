@@ -356,7 +356,12 @@ class MainActivity : FlutterFragmentActivity() {
                     return
                 }
                 DownloadEngine.runInBackground(result, "STATUS_FAILED") {
-                    DeviceFiles.statusThumbnail(applicationContext, Uri.parse(uri), size)
+                    DeviceFiles.statusThumbnail(
+                        applicationContext,
+                        Uri.parse(uri),
+                        size,
+                        call.argument<Boolean>("isVideo") ?: false,
+                    )
                 }
             }
 

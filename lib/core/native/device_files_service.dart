@@ -105,11 +105,16 @@ class DeviceFilesService {
   });
 
   /// JPEG preview of a status, or null when none can be made.
-  Future<Uint8List?> statusThumbnail(String uri, {int size = 320}) async {
+  Future<Uint8List?> statusThumbnail(
+    String uri, {
+    int size = 320,
+    bool isVideo = false,
+  }) async {
     try {
       return await _channel.invokeMethod<Uint8List>('statusThumbnail', {
         'uri': uri,
         'size': size,
+        'isVideo': isVideo,
       });
     } catch (_) {
       return null;
