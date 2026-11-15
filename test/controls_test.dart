@@ -416,6 +416,88 @@ void main() {
     );
 
     test(
+      'gallery mode keeps one copy: the gallery file replaces ours',
+      () async {
+        final galleryFolder = Directory('${directory.path}/Pictures')
+          ..createSync();
+        gallery.galleryFolder = galleryFolder;
+        container = create(const AppSettings());
+        await settle();
+        final id = queue().enqueue(video('a'), videoFormat(720));
+        await settle();
+        final ours = File('${directory.path}/clip.mp4')
+          ..writeAsStringSync('video');
+        native.events.add(
+          DownloadProgress(
+            taskId: id,
+            status: DownloadStatus.completed,
+            filePaths: [ours.path],
+            fileSize: 5,
+          ),
+        );
+        await settle();
+
+        // Our copy is gone; the task now points at the gallery file.
+        final galleryPath = '${galleryFolder.path}/clip.mp4';
+        expect(ours.existsSync(), isFalse);
+        expect(File(galleryPath).readAsStringSync(), 'video');
+        expect(task(id).filePaths, [galleryPath]);
+        expect(task(id).exported, {galleryPath: 'content://media/clip.mp4'});
+
+        // Deleting the download deletes that one remaining copy.
+        await queue().removeAll([id]);
+        expect(gallery.deleted.single.$1, ['content://media/clip.mp4']);
+      },
+    );
+
+    test('our copy is kept when the gallery copy cannot be read', () async {
+      // The fake reports no file path, as Android sometimes does.
+      container = create(const AppSettings());
+      await settle();
+      final id = queue().enqueue(video('a'), videoFormat(720));
+      await settle();
+      final ours = File('${directory.path}/clip.mp4')
+        ..writeAsStringSync('video');
+      native.events.add(
+        DownloadProgress(
+          taskId: id,
+          status: DownloadStatus.completed,
+          filePaths: [ours.path],
+        ),
+      );
+      await settle();
+      expect(ours.existsSync(), isTrue);
+      expect(task(id).filePaths, [ours.path]);
+      expect(task(id).savedToGallery, isTrue);
+    });
+
+    test('private mode keeps downloads out of the gallery', () async {
+      container = create(const AppSettings(saveLocation: SaveLocation.private));
+      await settle();
+      final id = queue().enqueue(video('a'), videoFormat(720));
+      await settle();
+      final ours = File('${directory.path}/clip.mp4')
+        ..writeAsStringSync('video');
+      native.events.add(
+        DownloadProgress(
+          taskId: id,
+          status: DownloadStatus.completed,
+          filePaths: [ours.path],
+        ),
+      );
+      await settle();
+      expect(gallery.exportedPaths, isEmpty);
+      expect(ours.existsSync(), isTrue);
+      expect(task(id).savedToGallery, isFalse);
+
+      await queue().removeAll([id]);
+      expect(ours.existsSync(), isFalse);
+      // Nothing to remove from the gallery.
+      expect(gallery.deleted.single.$1, isEmpty);
+      expect(gallery.deleted.single.$2, isEmpty);
+    });
+
+    test(
       'downloads exported by older versions are found by file name',
       () async {
         final file = File('${directory.path}/old.mp4')..writeAsStringSync('x');

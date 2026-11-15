@@ -551,21 +551,63 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
 
   // region gallery copies
 
-  /// Copies a finished task's files to the gallery and remembers where each
-  /// copy went, so deleting the download can delete the copy too.
+  /// Moves a finished task's files to the gallery, unless downloads are
+  /// kept private. The gallery copy becomes the only copy: SaveKit's own is
+  /// deleted and the task points at the gallery file from then on. Where each
+  /// copy went is remembered so deleting the download deletes it too.
   Future<void> _exportToGallery(DownloadTask task) async {
-    Map<String, String> exported;
+    if (ref.read(settingsControllerProvider).saveLocation ==
+        SaveLocation.private) {
+      return;
+    }
+    Map<String, ExportedCopy> copies;
     try {
-      exported = await ref
+      copies = await ref
           .read(galleryExportServiceProvider)
           .export(task.filePaths);
     } catch (_) {
-      exported = const {};
+      copies = const {};
     }
-    if (!ref.mounted || exported.isEmpty) return;
+    if (!ref.mounted || copies.isEmpty) return;
     final current = _find(task.id);
-    if (current != null) {
-      _replace(current.copyWith(savedToGallery: true, exported: exported));
+    if (current == null) return;
+
+    final paths = <String>[];
+    final exported = <String, String>{};
+    for (final path in current.filePaths) {
+      final copy = copies[path];
+      if (copy == null) {
+        paths.add(path);
+        continue;
+      }
+      final galleryPath = copy.path;
+      // Only drop our own copy once the gallery one is confirmed readable.
+      if (galleryPath != null &&
+          galleryPath != path &&
+          _isReadable(galleryPath)) {
+        _deleteFiles([path]);
+        paths.add(galleryPath);
+        exported[galleryPath] = copy.location;
+      } else {
+        paths.add(path);
+        exported[path] = copy.location;
+      }
+    }
+    _replace(
+      current.copyWith(
+        savedToGallery: true,
+        exported: exported,
+        filePaths: paths,
+      ),
+    );
+  }
+
+  static bool _isReadable(String path) {
+    try {
+      final file = File(path);
+      return file.existsSync() && file.lengthSync() > 0;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -41,19 +41,19 @@ class GalleryExportService {
     }
   }
 
-  /// Exports [paths]. Returns, for each file that was exported, where its
-  /// copy lives; keep this to delete the copy later.
-  Future<Map<String, String>> export(List<String> paths) async {
+  /// Exports [paths]. Returns, for each file that was exported, its copy in
+  /// shared storage; keep the copy's location to delete it later.
+  Future<Map<String, ExportedCopy>> export(List<String> paths) async {
     if (paths.isEmpty) return const {};
     await _ensureLegacyAccess();
-    final exported = <String, String>{};
+    final exported = <String, ExportedCopy>{};
     for (final path in paths) {
       try {
-        final location = await _native.exportToMediaStore(
+        final copy = await _native.exportToMediaStore(
           path,
           kind: savedFileKindOf(path).name,
         );
-        if (location.isNotEmpty) exported[path] = location;
+        if (copy != null) exported[path] = copy;
       } catch (_) {
         // This file stays in the Vault only.
       }

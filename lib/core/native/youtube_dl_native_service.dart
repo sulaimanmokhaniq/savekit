@@ -52,6 +52,17 @@ class EngineUpdateResult {
   bool get anythingUpdated => updated || galleryUpdated;
 }
 
+/// A copy of a finished file in the phone's shared storage (the gallery).
+class ExportedCopy {
+  const ExportedCopy({required this.location, this.path});
+
+  /// Address used to delete the copy later.
+  final String location;
+
+  /// Where the copy can be read as a plain file; null when unknown.
+  final String? path;
+}
+
 /// One video of a playlist, not yet looked up.
 class PlaylistEntry {
   const PlaylistEntry({required this.url, required this.title, this.duration});
@@ -237,16 +248,20 @@ class YoutubeDlNativeService {
   );
 
   /// Copies a file into shared storage under a SaveKit folder ([kind] is
-  /// "image", "video", "audio" or "other") and returns where the copy lives.
-  Future<String> exportToMediaStore(String path, {required String kind}) =>
-      _guard(
-        () async =>
-            await _methods.invokeMethod<String>('exportToMediaStore', {
-              'path': path,
-              'kind': kind,
-            }) ??
-            '',
-      );
+  /// "image", "video", "audio" or "other"). Returns the copy, or null when
+  /// nothing was exported.
+  Future<ExportedCopy?> exportToMediaStore(
+    String path, {
+    required String kind,
+  }) => _guard(() async {
+    final result = await _methods.invokeMapMethod<String, dynamic>(
+      'exportToMediaStore',
+      {'path': path, 'kind': kind},
+    );
+    final location = result?['location'] as String?;
+    if (location == null || location.isEmpty) return null;
+    return ExportedCopy(location: location, path: result?['path'] as String?);
+  });
 
   /// Removes exported copies from shared storage. Returns true when every
   /// copy is gone. Android may show its own confirmation for copies made by

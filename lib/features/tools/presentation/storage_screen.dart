@@ -176,6 +176,36 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     ),
                   ),
                 ],
+                if (data.missingTaskIds.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.link_off_rounded,
+                        color: AppColors.textMuted,
+                      ),
+                      title: Text(
+                        data.missingTaskIds.length == 1
+                            ? '1 download has no file'
+                            : '${data.missingTaskIds.length} downloads have no files',
+                      ),
+                      subtitle: Text(
+                        'They were deleted outside SaveKit, for example from '
+                        'the gallery.',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      trailing: TextButton(
+                        onPressed: () => ref
+                            .read(downloadQueueControllerProvider.notifier)
+                            .removeAll(data.missingTaskIds),
+                        child: const Text('Remove'),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 if (files.isEmpty)
                   const Padding(

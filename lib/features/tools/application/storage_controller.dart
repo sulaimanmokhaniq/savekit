@@ -35,6 +35,7 @@ class StorageSnapshot {
     this.files = const [],
     this.leftovers = const [],
     this.leftoverBytes = 0,
+    this.missingTaskIds = const [],
   });
 
   /// Files of finished downloads.
@@ -43,6 +44,10 @@ class StorageSnapshot {
   /// Partial and temporary files no download is using any more.
   final List<String> leftovers;
   final int leftoverBytes;
+
+  /// Downloads whose files were all deleted outside SaveKit (for example
+  /// from the gallery app), leaving an empty entry in the Vault.
+  final List<String> missingTaskIds;
 
   int get fileBytes => files.fold(0, (sum, file) => sum + file.size);
   int get totalBytes => fileBytes + leftoverBytes;
@@ -63,8 +68,10 @@ final storageSnapshotProvider = FutureProvider<StorageSnapshot>((ref) async {
 
   final files = <StoredFile>[];
   final known = <String>{};
+  final missing = <String>[];
   for (final task in tasks) {
     if (task.status != DownloadStatus.completed) continue;
+    final before = files.length;
     for (final path in task.filePaths) {
       known.add(path);
       try {
@@ -82,6 +89,9 @@ final storageSnapshotProvider = FutureProvider<StorageSnapshot>((ref) async {
       } catch (_) {
         // Deleted outside the app; nothing to count.
       }
+    }
+    if (task.filePaths.isNotEmpty && files.length == before) {
+      missing.add(task.id);
     }
   }
 
@@ -108,6 +118,7 @@ final storageSnapshotProvider = FutureProvider<StorageSnapshot>((ref) async {
     files: files,
     leftovers: leftovers,
     leftoverBytes: leftoverBytes,
+    missingTaskIds: missing,
   );
 });
 

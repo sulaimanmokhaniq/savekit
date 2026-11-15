@@ -215,14 +215,18 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 18),
           const _SectionTitle('STORAGE'),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Text(
-                'Photos and videos also appear in your gallery under “SaveKit”, '
-                'and audio in Music/SaveKit. Deleting a download in SaveKit '
-                'deletes it from the gallery too, so the space is really freed.',
-                style: TextStyle(color: AppColors.textMuted, height: 1.4),
-              ),
+            child: _ChoiceRow<SaveLocation>(
+              icon: Icons.folder_outlined,
+              title: 'Keep downloads in',
+              subtitle: settings.saveLocation == SaveLocation.gallery
+                  ? 'Your gallery, under “SaveKit”. One copy; other apps '
+                        'can see it. Deleting it in SaveKit deletes it there.'
+                  : 'SaveKit only. One copy, hidden from the gallery and '
+                        'protected by the Vault lock.',
+              value: settings.saveLocation,
+              values: SaveLocation.values,
+              labelOf: (value) => value.label,
+              onChanged: settingsController.setSaveLocation,
             ),
           ),
           const SizedBox(height: 18),

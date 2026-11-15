@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -219,10 +220,28 @@ class UiFakeGallery implements GalleryExportService {
   /// What deleteExported answers; false simulates Android keeping a copy.
   bool deleteSucceeds = true;
 
+  /// When set, exporting really copies each file into this folder, the way
+  /// Android copies it into the gallery, and reports the copy's path.
+  Directory? galleryFolder;
+
+  /// Files handed over for export.
+  final exportedPaths = <String>[];
+
   @override
-  Future<Map<String, String>> export(List<String> paths) async => {
-    for (final path in paths) path: 'content://media/${path.split('/').last}',
-  };
+  Future<Map<String, ExportedCopy>> export(List<String> paths) async {
+    exportedPaths.addAll(paths);
+    final folder = galleryFolder;
+    return {
+      for (final path in paths)
+        path: ExportedCopy(
+          location: 'content://media/${path.split('/').last}',
+          path: folder == null
+              ? null
+              : (File(path).copySync('${folder.path}/${path.split('/').last}'))
+                    .path,
+        ),
+    };
+  }
 
   @override
   Future<bool> deleteExported({

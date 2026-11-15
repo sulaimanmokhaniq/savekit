@@ -64,9 +64,11 @@ object MediaStoreExporter {
 
     /**
      * Copies [path] into shared storage as [kind] ("image", "video", "audio" or "other").
-     * Returns the content URI of the copy (Android 10+) or its file path (older versions).
+     * Returns `location`, the address used to delete the copy later (a content URI on
+     * Android 10+, a file path before), and `path`, where the copy can be read as a plain
+     * file, or null when Android does not say.
      */
-    fun export(context: Context, path: String, kind: String): String {
+    fun export(context: Context, path: String, kind: String): Map<String, String?> {
         val source = File(path)
         require(source.isFile) { "File not found: $path" }
         val target = targetFor(kind)
@@ -93,7 +95,7 @@ object MediaStoreExporter {
                 resolver.delete(uri, null, null)
                 throw e
             }
-            return uri.toString()
+            return mapOf("location" to uri.toString(), "path" to filePathOf(context, uri))
         }
 
         // Android 9 and below: write to the public folder directly (needs the legacy
@@ -112,7 +114,18 @@ object MediaStoreExporter {
         }
         source.copyTo(copy)
         MediaScannerConnection.scanFile(context, arrayOf(copy.absolutePath), arrayOf(mimeType), null)
-        return copy.absolutePath
+        return mapOf("location" to copy.absolutePath, "path" to copy.absolutePath)
+    }
+
+    /** The file behind a MediaStore entry; the app may read files it created itself. */
+    private fun filePathOf(context: Context, uri: Uri): String? = try {
+        @Suppress("DEPRECATION")
+        context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+            }
+    } catch (e: Exception) {
+        null
     }
 
     /** What happened to a delete request. */

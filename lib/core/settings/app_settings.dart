@@ -33,6 +33,24 @@ enum QualityPreference {
   ];
 }
 
+/// Where finished downloads are kept. Either way there is one copy.
+enum SaveLocation {
+  /// In the phone's gallery (Pictures, Movies, Music under "SaveKit"), where
+  /// other apps can see them too.
+  gallery('gallery', 'Gallery'),
+
+  /// Inside SaveKit only: hidden from the gallery and other apps.
+  private('private', 'Private (SaveKit only)');
+
+  const SaveLocation(this.id, this.label);
+
+  final String id;
+  final String label;
+
+  static SaveLocation fromId(String? id) =>
+      values.firstWhere((value) => value.id == id, orElse: () => gallery);
+}
+
 enum VaultSort {
   newest('newest', 'Newest first'),
   oldest('oldest', 'Oldest first'),
@@ -62,6 +80,7 @@ class AppSettings {
     this.vaultGrid = true,
     this.autoUpdate = true,
     this.lastEngineUpdate,
+    this.saveLocation = SaveLocation.gallery,
   });
 
   /// Id of the selected [AppPalette].
@@ -91,6 +110,9 @@ class AppSettings {
   /// When the extractors were last checked for updates; null if never.
   final DateTime? lastEngineUpdate;
 
+  /// Where new downloads are kept.
+  final SaveLocation saveLocation;
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -106,6 +128,7 @@ class AppSettings {
     bool? vaultGrid,
     bool? autoUpdate,
     DateTime? lastEngineUpdate,
+    SaveLocation? saveLocation,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     matchIcon: matchIcon ?? this.matchIcon,
@@ -120,6 +143,7 @@ class AppSettings {
     vaultGrid: vaultGrid ?? this.vaultGrid,
     autoUpdate: autoUpdate ?? this.autoUpdate,
     lastEngineUpdate: lastEngineUpdate ?? this.lastEngineUpdate,
+    saveLocation: saveLocation ?? this.saveLocation,
   );
 
   Map<String, dynamic> toMap() => {
@@ -133,6 +157,7 @@ class AppSettings {
     'vaultGrid': vaultGrid,
     'autoUpdate': autoUpdate,
     'lastEngineUpdate': lastEngineUpdate?.millisecondsSinceEpoch,
+    'saveLocation': saveLocation.id,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -153,6 +178,7 @@ class AppSettings {
             (map['lastEngineUpdate'] as num).toInt(),
           )
         : null,
+    saveLocation: SaveLocation.fromId(map['saveLocation'] as String?),
   );
 }
 
@@ -256,6 +282,8 @@ class SettingsController extends Notifier<AppSettings> {
   void setLockVault(bool value) => _set(state.copyWith(lockVault: value));
   void setVaultSort(VaultSort value) => _set(state.copyWith(vaultSort: value));
   void setVaultGrid(bool value) => _set(state.copyWith(vaultGrid: value));
+  void setSaveLocation(SaveLocation value) =>
+      _set(state.copyWith(saveLocation: value));
   void setAutoUpdate(bool value) => _set(state.copyWith(autoUpdate: value));
   void markEngineUpdated(DateTime when) =>
       _set(state.copyWith(lastEngineUpdate: when));

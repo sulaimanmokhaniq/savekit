@@ -118,10 +118,13 @@ class FakeGallery implements GalleryExportService {
   bool result = true;
 
   @override
-  Future<Map<String, String>> export(List<String> paths) async {
+  Future<Map<String, ExportedCopy>> export(List<String> paths) async {
     exported.add(paths);
     if (!result) return const {};
-    return {for (final path in paths) path: 'content://media$path'};
+    return {
+      for (final path in paths)
+        path: ExportedCopy(location: 'content://media$path'),
+    };
   }
 
   @override
