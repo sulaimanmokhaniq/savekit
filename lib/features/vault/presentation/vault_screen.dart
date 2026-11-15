@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/platform/media_platform.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/formatters.dart';
 import '../../../core/widgets/media_thumbnail.dart';
@@ -10,9 +11,12 @@ import '../../../core/widgets/platform_badge.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../../downloader/data/gallery_export_service.dart';
 import '../../downloader/domain/download_task.dart';
+import '../../tools/presentation/converter_screen.dart';
+import '../application/vault_lock.dart';
 import 'media_viewer_screen.dart';
 
-/// Media Vault: finished downloads, filterable by platform, as a grid or list.
+/// Media Vault: finished downloads. Searchable, sortable, filterable by
+/// platform, as a grid or list, with multi-select and an optional lock.
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
 
@@ -22,7 +26,34 @@ class VaultScreen extends ConsumerStatefulWidget {
 
 class _VaultScreenState extends ConsumerState<VaultScreen> {
   MediaPlatform? _filter;
-  bool _grid = true;
+  String _query = '';
+  bool _searching = false;
+  final _search = TextEditingController();
+  final _selected = <String>{};
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Leaving the app locks the Vault again.
+    _lifecycle = AppLifecycleListener(
+      onHide: () => ref.read(vaultUnlockedProvider.notifier).lock(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _unlock() async {
+    final ok = await ref
+        .read(vaultLockServiceProvider)
+        .authenticate('Unlock your Vault');
+    if (ok) ref.read(vaultUnlockedProvider.notifier).unlock();
+  }
 
   Future<void> _share(List<String> paths) async {
     if (paths.isEmpty) return;
@@ -38,16 +69,22 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
   }
 
-  /// Asks, then deletes. Returns whether the download was deleted.
-  Future<bool> _delete(DownloadTask task) async {
+  /// Asks, then deletes [tasks]. Returns whether they were deleted.
+  Future<bool> _delete(List<DownloadTask> tasks) async {
+    if (tasks.isEmpty) return false;
+    final exported = tasks.any((task) => task.savedToGallery);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete this download?'),
+        title: Text(
+          tasks.length == 1
+              ? 'Delete this download?'
+              : 'Delete ${tasks.length} downloads?',
+        ),
         content: Text(
-          task.savedToGallery
-              ? 'It is removed from SaveKit. The copy in your gallery stays.'
-              : 'The file is removed from this phone.',
+          exported
+              ? 'Removed from SaveKit. Copies in your gallery stay.'
+              : 'The files are removed from this phone.',
         ),
         actions: [
           TextButton(
@@ -63,8 +100,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       ),
     );
     if (confirmed != true) return false;
-    await ref.read(downloadQueueControllerProvider.notifier).remove(task.id);
+    await ref
+        .read(downloadQueueControllerProvider.notifier)
+        .removeAll(tasks.map((task) => task.id));
+    if (mounted) setState(() => _selected.removeAll(tasks.map((t) => t.id)));
     return true;
+  }
+
+  void _convert(DownloadTask task) {
+    final video = task.filePaths.firstWhere(
+      (path) => savedFileKindOf(path) == SavedFileKind.video,
+    );
+    enqueueConversion(ref, path: video, title: task.title, audioFormat: 'mp3');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Converting to MP3. Follow it in the Queue.'),
+        ),
+      );
   }
 
   void _open(DownloadTask task) {
@@ -73,14 +127,42 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         builder: (_) => MediaViewerScreen(
           task: task,
           onShare: (path) => _share([path]),
-          onDelete: () => _delete(task),
+          onDelete: () => _delete([task]),
         ),
       ),
     );
   }
 
+  void _toggle(DownloadTask task) => setState(() {
+    if (!_selected.remove(task.id)) _selected.add(task.id);
+  });
+
+  List<DownloadTask> _sorted(List<DownloadTask> tasks, VaultSort sort) {
+    final sorted = [...tasks];
+    DateTime date(DownloadTask task) => task.completedAt ?? task.createdAt;
+    switch (sort) {
+      case VaultSort.newest:
+        sorted.sort((a, b) => date(b).compareTo(date(a)));
+      case VaultSort.oldest:
+        sorted.sort((a, b) => date(a).compareTo(date(b)));
+      case VaultSort.largest:
+        sorted.sort((a, b) => (b.fileSize ?? 0).compareTo(a.fileSize ?? 0));
+      case VaultSort.smallest:
+        sorted.sort((a, b) => (a.fileSize ?? 0).compareTo(b.fileSize ?? 0));
+      case VaultSort.name:
+        sorted.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+    }
+    return sorted;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsControllerProvider);
+    final locked = settings.lockVault && !ref.watch(vaultUnlockedProvider);
+    if (locked) return _LockedVault(onUnlock: _unlock);
+
     final all = ref.watch(completedDownloadsProvider);
     final platforms = [
       for (final platform in MediaPlatform.values)
@@ -88,26 +170,109 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     ];
     // A filter whose last item was deleted falls back to "All".
     final filter = platforms.contains(_filter) ? _filter : null;
-    final tasks = filter == null
-        ? all
-        : [
-            for (final task in all)
-              if (task.platform == filter) task,
-          ];
+    final query = _query.trim().toLowerCase();
+    final tasks = _sorted([
+      for (final task in all)
+        if ((filter == null || task.platform == filter) &&
+            (query.isEmpty ||
+                task.title.toLowerCase().contains(query) ||
+                (task.uploader?.toLowerCase().contains(query) ?? false)))
+          task,
+    ], settings.vaultSort);
+    final selected = [
+      for (final task in all)
+        if (_selected.contains(task.id)) task,
+    ];
+    final selecting = selected.isNotEmpty;
+    final grid = settings.vaultGrid;
+    final settingsController = ref.read(settingsControllerProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vault'),
+        leading: selecting
+            ? IconButton(
+                onPressed: () => setState(_selected.clear),
+                tooltip: 'Cancel selection',
+                icon: const Icon(Icons.close_rounded),
+              )
+            : null,
+        title: selecting
+            ? Text(
+                '${selected.length} selected',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : _searching
+            ? TextField(
+                controller: _search,
+                autofocus: true,
+                onChanged: (value) => setState(() => _query = value),
+                style: const TextStyle(fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: 'Search your vault',
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                ),
+              )
+            : const Text('Vault'),
         actions: [
-          if (all.isNotEmpty)
+          if (selecting) ...[
             IconButton(
-              onPressed: () => setState(() => _grid = !_grid),
-              tooltip: _grid ? 'Show as list' : 'Show as grid',
+              onPressed: () => setState(
+                () => _selected.addAll(tasks.map((task) => task.id)),
+              ),
+              tooltip: 'Select all',
+              icon: const Icon(Icons.select_all_rounded),
+            ),
+            IconButton(
+              onPressed: () =>
+                  _share([for (final task in selected) ...task.filePaths]),
+              tooltip: 'Share selected',
+              icon: const Icon(Icons.share_outlined),
+            ),
+            IconButton(
+              onPressed: () => _delete(selected),
+              tooltip: 'Delete selected',
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ] else if (all.isNotEmpty) ...[
+            IconButton(
+              onPressed: () => setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _search.clear();
+                  _query = '';
+                }
+              }),
+              tooltip: _searching ? 'Close search' : 'Search',
               icon: Icon(
-                _grid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
+                _searching ? Icons.search_off_rounded : Icons.search_rounded,
               ),
             ),
-          const SizedBox(width: 8),
+            PopupMenuButton<VaultSort>(
+              tooltip: 'Sort',
+              icon: const Icon(Icons.sort_rounded),
+              initialValue: settings.vaultSort,
+              onSelected: settingsController.setVaultSort,
+              itemBuilder: (_) => [
+                for (final sort in VaultSort.values)
+                  PopupMenuItem(value: sort, child: Text(sort.label)),
+              ],
+            ),
+            IconButton(
+              onPressed: () => settingsController.setVaultGrid(!grid),
+              tooltip: grid ? 'Show as list' : 'Show as grid',
+              icon: Icon(
+                grid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
+              ),
+            ),
+          ],
+          const SizedBox(width: 4),
         ],
       ),
       body: all.isEmpty
@@ -155,7 +320,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     ),
                   ),
                 Expanded(
-                  child: _grid
+                  child: tasks.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.search_off_rounded,
+                          title: 'Nothing matches',
+                          message: 'Try another search or filter.',
+                        )
+                      : grid
                       ? GridView.builder(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                           gridDelegate:
@@ -166,29 +337,115 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                 childAspectRatio: 0.82,
                               ),
                           itemCount: tasks.length,
-                          itemBuilder: (context, index) => _GridTile(
-                            key: ValueKey(tasks[index].id),
-                            task: tasks[index],
-                            onOpen: () => _open(tasks[index]),
-                            onShare: () => _share(tasks[index].filePaths),
-                            onDelete: () => _delete(tasks[index]),
+                          itemBuilder: (context, index) => _tile(
+                            tasks[index],
+                            grid: true,
+                            selecting: selecting,
                           ),
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                           itemCount: tasks.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) => _ListTile(
-                            key: ValueKey(tasks[index].id),
-                            task: tasks[index],
-                            onOpen: () => _open(tasks[index]),
-                            onShare: () => _share(tasks[index].filePaths),
-                            onDelete: () => _delete(tasks[index]),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) => _tile(
+                            tasks[index],
+                            grid: false,
+                            selecting: selecting,
                           ),
                         ),
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _tile(
+    DownloadTask task, {
+    required bool grid,
+    required bool selecting,
+  }) {
+    final isSelected = _selected.contains(task.id);
+    final canConvert = task.filePaths.any(
+      (path) => savedFileKindOf(path) == SavedFileKind.video,
+    );
+    // While selecting, a tap toggles; otherwise it opens. A long press
+    // starts selecting.
+    void onTap() => selecting ? _toggle(task) : _open(task);
+    final menu = selecting
+        ? Icon(
+            isSelected
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: isSelected ? AppColors.accent : AppColors.textMuted,
+          )
+        : _Menu(
+            onShare: () => _share(task.filePaths),
+            onDelete: () => _delete([task]),
+            onSelect: () => _toggle(task),
+            onConvert: canConvert ? () => _convert(task) : null,
+          );
+    return grid
+        ? _GridTile(
+            key: ValueKey(task.id),
+            task: task,
+            selected: isSelected,
+            onTap: onTap,
+            onLongPress: () => _toggle(task),
+            trailing: menu,
+          )
+        : _ListTile(
+            key: ValueKey(task.id),
+            task: task,
+            selected: isSelected,
+            onTap: onTap,
+            onLongPress: () => _toggle(task),
+            trailing: menu,
+          );
+  }
+}
+
+class _LockedVault extends StatelessWidget {
+  const _LockedVault({required this.onUnlock});
+
+  final VoidCallback onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Vault')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 44,
+                color: AppColors.accent,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'The Vault is locked',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Confirm it’s you to see your downloads.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onUnlock,
+                icon: const Icon(Icons.fingerprint_rounded, size: 20),
+                label: const Text('Unlock'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -220,38 +477,65 @@ String _subtitle(DownloadTask task) => [
 ].join(' · ');
 
 class _Menu extends StatelessWidget {
-  const _Menu({required this.onShare, required this.onDelete});
+  const _Menu({
+    required this.onShare,
+    required this.onDelete,
+    required this.onSelect,
+    this.onConvert,
+  });
 
   final VoidCallback onShare;
   final VoidCallback onDelete;
+  final VoidCallback onSelect;
+
+  /// Null when the download has no video to convert.
+  final VoidCallback? onConvert;
 
   @override
   Widget build(BuildContext context) {
+    PopupMenuItem<String> item(
+      String value,
+      IconData icon,
+      String label, {
+      Color? color,
+    }) => PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+
     return PopupMenuButton<String>(
       tooltip: 'More',
       padding: EdgeInsets.zero,
-      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
-      onSelected: (value) => value == 'share' ? onShare() : onDelete(),
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'share',
-          child: Row(
-            children: [
-              Icon(Icons.share_outlined, size: 20),
-              SizedBox(width: 12),
-              Text('Share'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.danger),
-              SizedBox(width: 12),
-              Text('Delete', style: TextStyle(color: AppColors.danger)),
-            ],
-          ),
+      icon: Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
+      onSelected: (value) => switch (value) {
+        'share' => onShare(),
+        'select' => onSelect(),
+        'convert' => onConvert?.call(),
+        _ => onDelete(),
+      },
+      itemBuilder: (_) => [
+        item('share', Icons.share_outlined, 'Share'),
+        item('select', Icons.check_circle_outline_rounded, 'Select'),
+        if (onConvert != null)
+          item('convert', Icons.graphic_eq_rounded, 'Convert to audio'),
+        item(
+          'delete',
+          Icons.delete_outline_rounded,
+          'Delete',
+          color: AppColors.danger,
         ),
       ],
     );
@@ -262,22 +546,34 @@ class _GridTile extends StatelessWidget {
   const _GridTile({
     super.key,
     required this.task,
-    required this.onOpen,
-    required this.onShare,
-    required this.onDelete,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+    required this.trailing,
   });
 
   final DownloadTask task;
-  final VoidCallback onOpen;
-  final VoidCallback onShare;
-  final VoidCallback onDelete;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  /// The ⋮ menu, or the selection mark while selecting.
+  final Widget trailing;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        side: BorderSide(
+          color: selected ? AppColors.accent : AppColors.border,
+          width: selected ? 2 : 1,
+        ),
+      ),
       child: InkWell(
-        onTap: onOpen,
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -305,7 +601,11 @@ class _GridTile extends StatelessWidget {
                         color: Colors.black.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(_kindIcon(task), size: 16, color: Colors.white),
+                      child: Icon(
+                        _kindIcon(task),
+                        size: 16,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -333,7 +633,7 @@ class _GridTile extends StatelessWidget {
                           _subtitle(task),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textMuted,
                           ),
@@ -344,7 +644,7 @@ class _GridTile extends StatelessWidget {
                   SizedBox(
                     width: 36,
                     height: 36,
-                    child: _Menu(onShare: onShare, onDelete: onDelete),
+                    child: Center(child: trailing),
                   ),
                 ],
               ),
@@ -360,22 +660,34 @@ class _ListTile extends StatelessWidget {
   const _ListTile({
     super.key,
     required this.task,
-    required this.onOpen,
-    required this.onShare,
-    required this.onDelete,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+    required this.trailing,
   });
 
   final DownloadTask task;
-  final VoidCallback onOpen;
-  final VoidCallback onShare;
-  final VoidCallback onDelete;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  /// The ⋮ menu, or the selection mark while selecting.
+  final Widget trailing;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        side: BorderSide(
+          color: selected ? AppColors.accent : AppColors.border,
+          width: selected ? 2 : 1,
+        ),
+      ),
       child: InkWell(
-        onTap: onOpen,
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 10, 2, 10),
           child: Row(
@@ -411,7 +723,7 @@ class _ListTile extends StatelessWidget {
                             _subtitle(task),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               color: AppColors.textMuted,
                             ),
@@ -422,7 +734,7 @@ class _ListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              _Menu(onShare: onShare, onDelete: onDelete),
+              SizedBox(width: 44, height: 44, child: Center(child: trailing)),
             ],
           ),
         ),

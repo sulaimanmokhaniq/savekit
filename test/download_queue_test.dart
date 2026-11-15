@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:savekit/core/native/youtube_dl_native_service.dart';
+import 'package:savekit/core/network/connectivity_service.dart';
 import 'package:savekit/core/platform/media_platform.dart';
 import 'package:savekit/core/providers.dart';
+import 'package:savekit/core/settings/app_settings.dart';
 import 'package:savekit/core/storage/app_paths.dart';
 import 'package:savekit/features/cookies/data/cookie_export_service.dart';
 import 'package:savekit/features/downloader/application/download_queue_controller.dart';
@@ -16,6 +18,8 @@ import 'package:savekit/features/downloader/domain/download_progress.dart';
 import 'package:savekit/features/downloader/domain/download_task.dart';
 import 'package:savekit/features/extractor/domain/media_format.dart';
 import 'package:savekit/features/extractor/domain/media_info.dart';
+
+import 'support/fakes.dart' show FakeConnectivity;
 
 class FakeNative implements YoutubeDlNativeService {
   final events = StreamController<DownloadProgress>.broadcast();
@@ -156,11 +160,17 @@ void main() {
   late Directory directory;
   late ProviderContainer container;
   var notificationRequests = 0;
+  late FakeConnectivity connectivity;
+  late AppSettings settings;
 
   ProviderContainer createContainer() {
     final created = ProviderContainer(
       overrides: [
         nativeServiceProvider.overrideWithValue(native),
+        connectivityServiceProvider.overrideWithValue(connectivity),
+        settingsRepositoryProvider.overrideWithValue(
+          InMemorySettingsRepository(settings),
+        ),
         directDownloadServiceProvider.overrideWithValue(direct),
         galleryExportServiceProvider.overrideWithValue(gallery),
         cookieExportServiceProvider.overrideWithValue(FakeCookies()),
@@ -184,6 +194,8 @@ void main() {
 
   setUp(() async {
     native = FakeNative();
+    connectivity = FakeConnectivity();
+    settings = const AppSettings();
     direct = FakeDirect();
     gallery = FakeGallery();
     repository = InMemoryDownloadRepository();
@@ -256,29 +268,39 @@ void main() {
     expect(container.read(activeDownloadCountProvider), 0);
   });
 
-  test('runs at most three at once and starts the next when one ends', () async {
-    final ids = [
-      for (var i = 0; i < 5; i++) controller().enqueue(info('v$i'), video),
-    ];
-    await settle();
-    expect(native.started, ids.take(3));
-    expect(task(ids[3]).status, DownloadStatus.queued);
-    expect(notificationRequests, 1);
+  test(
+    'runs at most three at once and starts the next when one ends',
+    () async {
+      final ids = [
+        for (var i = 0; i < 5; i++) controller().enqueue(info('v$i'), video),
+      ];
+      await settle();
+      expect(native.started, ids.take(3));
+      expect(task(ids[3]).status, DownloadStatus.queued);
+      expect(notificationRequests, 1);
 
-    native.events.add(
-      DownloadProgress(taskId: ids[0], status: DownloadStatus.failed, error: 'boom'),
-    );
-    await settle();
+      native.events.add(
+        DownloadProgress(
+          taskId: ids[0],
+          status: DownloadStatus.failed,
+          error: 'boom',
+        ),
+      );
+      await settle();
 
-    expect(task(ids[0]).status, DownloadStatus.failed);
-    expect(task(ids[0]).error, 'boom');
-    expect(native.finishedNotifications, {ids[0]: false});
-    expect(native.started, ids.take(4));
-    expect(gallery.exported, isEmpty);
-  });
+      expect(task(ids[0]).status, DownloadStatus.failed);
+      expect(task(ids[0]).error, 'boom');
+      expect(native.finishedNotifications, {ids[0]: false});
+      expect(native.started, ids.take(4));
+      expect(gallery.exported, isEmpty);
+    },
+  );
 
   test('a failed start fails the task', () async {
-    native.startError = const EngineException('DOWNLOAD_FAILED', 'No space left');
+    native.startError = const EngineException(
+      'DOWNLOAD_FAILED',
+      'No space left',
+    );
     final id = controller().enqueue(info('a'), video);
     await settle();
     expect(task(id).status, DownloadStatus.failed);
@@ -304,7 +326,9 @@ void main() {
     // Still active until the engine confirms.
     expect(task(id).isActive, isTrue);
 
-    native.events.add(DownloadProgress(taskId: id, status: DownloadStatus.canceled));
+    native.events.add(
+      DownloadProgress(taskId: id, status: DownloadStatus.canceled),
+    );
     await settle();
     expect(task(id).status, DownloadStatus.canceled);
     expect(native.finishedNotifications, isEmpty);
@@ -322,7 +346,11 @@ void main() {
     final id = controller().enqueue(info('a'), video);
     await settle();
     native.events.add(
-      DownloadProgress(taskId: id, status: DownloadStatus.failed, error: 'boom'),
+      DownloadProgress(
+        taskId: id,
+        status: DownloadStatus.failed,
+        error: 'boom',
+      ),
     );
     await settle();
 
@@ -395,32 +423,35 @@ void main() {
     expect(repository.loadAll().map((t) => t.id), [b]);
   });
 
-  test('restores history and resumes interrupted downloads on launch', () async {
-    final created = DateTime(2026, 1, 1);
-    DownloadTask stored(String id, DownloadStatus status, int minutes) =>
-        DownloadTask.create(
-          id: id,
-          info: info(id),
-          format: video,
-          now: created.add(Duration(minutes: minutes)),
-        ).copyWith(status: status, progressPercent: 30);
+  test(
+    'restores history and resumes interrupted downloads on launch',
+    () async {
+      final created = DateTime(2026, 1, 1);
+      DownloadTask stored(String id, DownloadStatus status, int minutes) =>
+          DownloadTask.create(
+            id: id,
+            info: info(id),
+            format: video,
+            now: created.add(Duration(minutes: minutes)),
+          ).copyWith(status: status, progressPercent: 30);
 
-    repository = InMemoryDownloadRepository([
-      stored('done', DownloadStatus.completed, 0),
-      stored('interrupted', DownloadStatus.downloading, 1),
-      stored('failed', DownloadStatus.failed, 2),
-    ]);
-    container = createContainer();
-    container.listen(downloadQueueControllerProvider, (_, _) {});
+      repository = InMemoryDownloadRepository([
+        stored('done', DownloadStatus.completed, 0),
+        stored('interrupted', DownloadStatus.downloading, 1),
+        stored('failed', DownloadStatus.failed, 2),
+      ]);
+      container = createContainer();
+      container.listen(downloadQueueControllerProvider, (_, _) {});
 
-    // Newest first.
-    expect(tasks().map((t) => t.id), ['failed', 'interrupted', 'done']);
-    await settle();
+      // Newest first.
+      expect(tasks().map((t) => t.id), ['failed', 'interrupted', 'done']);
+      await settle();
 
-    expect(native.started, ['interrupted']);
-    expect(task('done').status, DownloadStatus.completed);
-    expect(task('failed').status, DownloadStatus.failed);
-  });
+      expect(native.started, ['interrupted']);
+      expect(task('done').status, DownloadStatus.completed);
+      expect(task('failed').status, DownloadStatus.failed);
+    },
+  );
 
   test('a download still running from before keeps reporting', () async {
     repository = InMemoryDownloadRepository([

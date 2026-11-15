@@ -8,6 +8,12 @@ enum MediaPlatform {
   x('x', 'X', ['x.com', 'twitter.com', 't.co']),
   linkedin('linkedin', 'LinkedIn', ['linkedin.com', 'lnkd.in']),
   facebook('facebook', 'Facebook', ['facebook.com', 'fb.watch']),
+
+  /// Statuses saved from WhatsApp's folder on the phone, not from a link.
+  whatsapp('whatsapp', 'WhatsApp', []),
+
+  /// Files made on the phone itself, such as converted audio.
+  device('device', 'This phone', []),
   other('other', 'Web', []);
 
   const MediaPlatform(this.id, this.label, this.hosts);
@@ -59,6 +65,28 @@ String? extractFirstUrl(String? text) {
   final uri = Uri.tryParse(url);
   if (uri == null || uri.host.isEmpty) return null;
   return url;
+}
+
+/// Every distinct web link in [text], in order. Lets several links be pasted
+/// at once, one per line or mixed into other text.
+List<String> extractAllUrls(String? text) {
+  if (text == null) return const [];
+  final urls = <String>[];
+  for (final match in _urlPattern.allMatches(text)) {
+    final url = extractFirstUrl(match.group(0));
+    if (url != null && !urls.contains(url)) urls.add(url);
+  }
+  return urls;
+}
+
+/// Whether [url] is a list of videos rather than a single one: a YouTube
+/// playlist page. A video opened from inside a playlist counts as one video.
+bool isPlaylistUrl(String url) {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null) return false;
+  if (MediaPlatform.fromUrl(url) != MediaPlatform.youtube) return false;
+  return uri.path.startsWith('/playlist') &&
+      (uri.queryParameters['list']?.isNotEmpty ?? false);
 }
 
 /// Whether [url] belongs to one of the named platforms. Used to decide when a

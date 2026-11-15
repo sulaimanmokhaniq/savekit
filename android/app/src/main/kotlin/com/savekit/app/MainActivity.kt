@@ -1,10 +1,13 @@
 package com.savekit.app
 
-import io.flutter.embedding.android.FlutterActivity
+import android.content.Intent
+import android.net.Uri
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 /**
  * Bridges Flutter to the on-device extraction engine.
@@ -14,12 +17,16 @@ import io.flutter.plugin.common.MethodChannel
  *  - getEngineVersion()
  *  - updateEngine()
  *  - getMediaInfo(url, cookiesFilePath?)
+ *  - getPlaylistInfo(url, cookiesFilePath?)
  *  - startDownload(taskId, url, formatSelection, outputDir, cookiesFilePath?, extractAudio,
  *                  formatSort?, audioFormat?, engine?, itemCount?)
  *  - cancelDownload(taskId)
  *  - updateDownloadService(activeCount, title, text, progress)
  *  - notifyDownloadFinished(taskId, title, success)
  *  - exportToMediaStore(path, audio)
+ *  - pickVideo()                                    -> {path, name, size} or null
+ *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
+ *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
  *
  * EventChannel `com.app.downloader/progress` streams maps of
  * `{taskId, status, progressPercent, speed, eta, ...}`; see [DownloadEngine].
@@ -27,10 +34,12 @@ import io.flutter.plugin.common.MethodChannel
  * Every call is answered on the main thread; the work itself runs on the engine's
  * background executor, so no call blocks the UI.
  */
-class MainActivity : FlutterActivity() {
+// A FragmentActivity is required by the biometric prompt used for the Vault lock.
+class MainActivity : FlutterFragmentActivity() {
 
     private var engineChannel: MethodChannel? = null
     private var progressChannel: EventChannel? = null
+    private var pendingPicker: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -64,6 +73,52 @@ class MainActivity : FlutterActivity() {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
+    /** Opens a system picker; the answer is delivered in [onActivityResult]. */
+    private fun launchPicker(requestCode: Int, intent: Intent, result: MethodChannel.Result) {
+        if (pendingPicker != null) {
+            result.error("PICKER_BUSY", "Another picker is already open.", null)
+            return
+        }
+        pendingPicker = result
+        try {
+            startActivityForResult(intent, requestCode)
+        } catch (e: Exception) {
+            pendingPicker = null
+            result.error("PICKER_UNAVAILABLE", "This phone has no file picker.", null)
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != DeviceFiles.REQUEST_PICK_VIDEO &&
+            requestCode != DeviceFiles.REQUEST_STATUS_FOLDER
+        ) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+        val result = pendingPicker ?: return
+        pendingPicker = null
+        val uri = DeviceFiles.pickedUri(resultCode, data)
+        val pickingVideo = requestCode == DeviceFiles.REQUEST_PICK_VIDEO
+
+        if (uri == null) {
+            // Closed without choosing anything.
+            result.success(if (pickingVideo) null else false)
+            return
+        }
+        if (pickingVideo) {
+            DownloadEngine.runInBackground(result, "PICK_FAILED") {
+                DeviceFiles.importPickedVideo(applicationContext, uri)
+            }
+            return
+        }
+        try {
+            result.success(DeviceFiles.saveStatusFolder(applicationContext, uri))
+        } catch (e: Exception) {
+            result.error("STATUS_FAILED", e.message ?: "Access was not granted.", null)
+        }
+    }
+
     private fun handleCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "initEngine" -> DownloadEngine.initEngine(result)
@@ -79,6 +134,19 @@ class MainActivity : FlutterActivity() {
                     return
                 }
                 DownloadEngine.getMediaInfo(
+                    url = url,
+                    cookiesFilePath = call.argument<String>("cookiesFilePath"),
+                    result = result,
+                )
+            }
+
+            "getPlaylistInfo" -> {
+                val url = call.argument<String>("url")?.trim()
+                if (url.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "getPlaylistInfo requires a non-empty 'url'.", null)
+                    return
+                }
+                DownloadEngine.getPlaylistInfo(
                     url = url,
                     cookiesFilePath = call.argument<String>("cookiesFilePath"),
                     result = result,
@@ -160,6 +228,54 @@ class MainActivity : FlutterActivity() {
                     audio = call.argument<Boolean>("audio") ?: false,
                     result = result,
                 )
+            }
+
+            "pickVideo" -> launchPicker(
+                DeviceFiles.REQUEST_PICK_VIDEO,
+                DeviceFiles.pickVideoIntent(),
+                result,
+            )
+
+            "grantStatusFolder" -> launchPicker(
+                DeviceFiles.REQUEST_STATUS_FOLDER,
+                DeviceFiles.statusFolderIntent(call.argument<Boolean>("business") ?: false),
+                result,
+            )
+
+            "statusFolderGranted" ->
+                result.success(DeviceFiles.statusFolder(applicationContext) != null)
+
+            "forgetStatusFolder" -> {
+                DeviceFiles.forgetStatusFolder(applicationContext)
+                result.success(null)
+            }
+
+            "listStatuses" -> DownloadEngine.runInBackground(result, "STATUS_FAILED") {
+                DeviceFiles.listStatuses(applicationContext)
+            }
+
+            "statusThumbnail" -> {
+                val uri = call.argument<String>("uri")
+                val size = call.argument<Number>("size")?.toInt() ?: 320
+                if (uri.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "statusThumbnail requires a 'uri'.", null)
+                    return
+                }
+                DownloadEngine.runInBackground(result, "STATUS_FAILED") {
+                    DeviceFiles.statusThumbnail(applicationContext, Uri.parse(uri), size)
+                }
+            }
+
+            "importStatuses" -> {
+                val uris = call.argument<List<String>>("uris").orEmpty()
+                val outputDir = call.argument<String>("outputDir")
+                if (outputDir.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "importStatuses requires an 'outputDir'.", null)
+                    return
+                }
+                DownloadEngine.runInBackground(result, "STATUS_FAILED") {
+                    DeviceFiles.importStatuses(applicationContext, uris, File(outputDir))
+                }
             }
 
             else -> result.notImplemented()

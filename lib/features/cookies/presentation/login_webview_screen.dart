@@ -61,7 +61,9 @@ class _LoginWebViewScreenState extends ConsumerState<LoginWebViewScreen> {
         children: [
           Expanded(
             child: InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(widget.account.loginUrl)),
+              initialUrlRequest: URLRequest(
+                url: WebUri(widget.account.loginUrl),
+              ),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 domStorageEnabled: true,
@@ -75,19 +77,26 @@ class _LoginWebViewScreenState extends ConsumerState<LoginWebViewScreen> {
               onUpdateVisitedHistory: (_, _, _) => _checkSignedIn(),
             ),
           ),
-          const SafeArea(
+          SafeArea(
             top: false,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: Row(
                 children: [
-                  Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.textMuted),
-                  SizedBox(width: 8),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 16,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'You are signing in on the platform’s own page. '
                       'This screen closes by itself when you are in.',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],

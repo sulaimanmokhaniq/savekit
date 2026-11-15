@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:savekit/core/native/device_files_service.dart';
 import 'package:savekit/core/native/youtube_dl_native_service.dart';
+import 'package:savekit/core/network/connectivity_service.dart';
 import 'package:savekit/core/platform/media_platform.dart';
 import 'package:savekit/core/providers.dart';
+import 'package:savekit/core/settings/app_settings.dart';
 import 'package:savekit/core/storage/app_paths.dart';
 import 'package:savekit/features/cookies/data/cookie_export_service.dart';
 import 'package:savekit/features/cookies/domain/platform_account.dart';
@@ -17,12 +21,18 @@ import 'package:savekit/features/extractor/data/media_extractor.dart';
 import 'package:savekit/features/extractor/data/web_extraction_rules.dart';
 import 'package:savekit/features/extractor/domain/media_format.dart';
 import 'package:savekit/features/extractor/domain/media_info.dart';
+import 'package:savekit/features/tools/application/storage_controller.dart';
+import 'package:savekit/features/vault/application/vault_lock.dart';
 
 /// Stand-ins for everything that needs Android, for widget tests.
 
 class UiFakeNative implements YoutubeDlNativeService {
   final events = StreamController<DownloadProgress>.broadcast();
   final started = <String>[];
+  final canceled = <String>[];
+
+  /// Whether cancelDownload reports that a process was stopped.
+  bool cancelStops = false;
 
   @override
   Stream<DownloadProgress> get progressStream => events.stream;
@@ -49,7 +59,24 @@ class UiFakeNative implements YoutubeDlNativeService {
   }) async => started.add(taskId);
 
   @override
-  Future<bool> cancelDownload(String taskId) async => false;
+  Future<PlaylistInfo> getPlaylistInfo(
+    String url, {
+    String? cookiesFilePath,
+  }) async => PlaylistInfo(
+    url: url,
+    title: 'Road trip mixes',
+    uploader: 'harbour.studio',
+    entries: [
+      for (var i = 1; i <= 4; i++)
+        PlaylistEntry(url: 'https://youtu.be/mix$i', title: 'Mix volume $i'),
+    ],
+  );
+
+  @override
+  Future<bool> cancelDownload(String taskId) async {
+    canceled.add(taskId);
+    return cancelStops;
+  }
 
   @override
   Future<void> updateDownloadService({
@@ -65,6 +92,89 @@ class UiFakeNative implements YoutubeDlNativeService {
     required String title,
     required bool success,
   }) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A connection the test controls.
+class FakeConnectivity implements ConnectivityService {
+  FakeConnectivity({this.onWifi = true});
+
+  bool onWifi;
+  final _changes = StreamController<bool>.broadcast();
+
+  void setWifi(bool value) {
+    onWifi = value;
+    _changes.add(value);
+  }
+
+  @override
+  Future<bool> isOnWifi() async => onWifi;
+
+  @override
+  Stream<bool> get wifiChanges => _changes.stream;
+}
+
+class UiFakeVaultLock implements VaultLockService {
+  UiFakeVaultLock({this.accept = true});
+
+  /// Whether the "fingerprint" is accepted.
+  bool accept;
+  final prompts = <String>[];
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    prompts.add(reason);
+    return accept;
+  }
+}
+
+class UiFakeDeviceFiles implements DeviceFilesService {
+  bool granted = true;
+  final imported = <List<String>>[];
+
+  @override
+  Future<bool> statusFolderGranted() async => granted;
+
+  @override
+  Future<bool> grantStatusFolder({bool business = false}) async =>
+      granted = true;
+
+  @override
+  Future<List<WhatsAppStatus>> listStatuses() async => [
+    for (var i = 0; i < 6; i++)
+      WhatsAppStatus(
+        uri: 'content://statuses/$i',
+        name: 'status_$i.${i.isEven ? 'jpg' : 'mp4'}',
+        size: (i + 1) * 700 * 1024,
+        modified: DateTime(2026, 11, 14, 12 - i),
+        isVideo: i.isOdd,
+      ),
+  ];
+
+  @override
+  Future<Uint8List?> statusThumbnail(String uri, {int size = 320}) async =>
+      null;
+
+  @override
+  Future<List<String>> importStatuses(
+    List<String> uris,
+    String outputDir,
+  ) async {
+    imported.add(uris);
+    return [for (final uri in uris) '$outputDir/${uri.split('/').last}.jpg'];
+  }
+
+  @override
+  Future<PickedVideo?> pickVideo() async => const PickedVideo(
+    path: '/cache/converter/Holiday clip.mp4',
+    name: 'Holiday clip.mp4',
+    size: 48 * 1024 * 1024,
+  );
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -114,7 +224,8 @@ class UiFakeCookies implements CookieExportService {
   };
 
   @override
-  Future<void> logout(PlatformAccount account) async => signedIn.remove(account);
+  Future<void> logout(PlatformAccount account) async =>
+      signedIn.remove(account);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -229,7 +340,12 @@ DownloadTask storedTask(
   int? size,
   String? error,
 }) {
-  final created = DateTime(2026, 11, 14, 12).subtract(Duration(minutes: minutesAgo));
+  final created = DateTime(
+    2026,
+    11,
+    14,
+    12,
+  ).subtract(Duration(minutes: minutesAgo));
   return DownloadTask(
     id: id,
     url: 'https://example.com/$id',
@@ -254,18 +370,39 @@ List<Override> uiOverrides({
   Set<PlatformAccount> signedIn = const {},
   String? clipboard,
   UiFakeShareSource? shareSource,
+  AppSettings settings = const AppSettings(),
+  FakeConnectivity? connectivity,
+  DownloadRepository? repository,
+  AppPaths? paths,
+  MediaExtractor? extractor,
+  UiFakeVaultLock? vaultLock,
+  UiFakeDeviceFiles? deviceFiles,
+  StorageSnapshot? storage,
 }) => [
+  vaultLockServiceProvider.overrideWithValue(vaultLock ?? UiFakeVaultLock()),
+  deviceFilesServiceProvider.overrideWithValue(
+    deviceFiles ?? UiFakeDeviceFiles(),
+  ),
+  // Widget tests cannot do real file I/O, so the measured storage is given.
+  if (storage != null)
+    storageSnapshotProvider.overrideWith((ref) async => storage),
+  settingsRepositoryProvider.overrideWithValue(
+    InMemorySettingsRepository(settings),
+  ),
+  connectivityServiceProvider.overrideWithValue(
+    connectivity ?? FakeConnectivity(),
+  ),
   nativeServiceProvider.overrideWithValue(native),
   directDownloadServiceProvider.overrideWithValue(UiFakeDirect()),
   galleryExportServiceProvider.overrideWithValue(UiFakeGallery()),
   cookieExportServiceProvider.overrideWithValue(UiFakeCookies({...signedIn})),
   mediaExtractorProvider.overrideWithValue(
-    UiFakeExtractor(extraction ?? sampleInfo()),
+    extractor ?? UiFakeExtractor(extraction ?? sampleInfo()),
   ),
   downloadRepositoryProvider.overrideWithValue(
-    InMemoryDownloadRepository(tasks),
+    repository ?? InMemoryDownloadRepository(tasks),
   ),
-  appPathsProvider.overrideWithValue(UiFakePaths()),
+  appPathsProvider.overrideWithValue(paths ?? UiFakePaths()),
   webExtractionRulesStoreProvider.overrideWithValue(UiFakeRulesStore()),
   notificationPermissionProvider.overrideWithValue(() async {}),
   shareSourceProvider.overrideWithValue(shareSource ?? UiFakeShareSource()),

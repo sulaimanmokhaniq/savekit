@@ -31,7 +31,8 @@ dependencies:
 
   # Vault playback
   video_player: ^2.14.1
-
+  connectivity_plus: ^7.3.2
+  local_auth: ^3.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

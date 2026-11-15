@@ -6,6 +6,8 @@ import '../../../core/engine/engine_controller.dart';
 import '../../../core/platform/media_platform.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/platform_badge.dart';
+import '../../../core/widgets/savekit_logo.dart';
+import '../application/batch_controller.dart';
 import '../application/incoming_link_controller.dart';
 
 /// Home / Smart Paste: paste or type a link, or take the one found on the
@@ -13,8 +15,9 @@ import '../application/incoming_link_controller.dart';
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.onFetch});
 
-  /// Opens the format picker for a link.
-  final void Function(String url) onFetch;
+  /// Handles what was typed or pasted: one link opens the format picker,
+  /// several links or a playlist open the batch sheet.
+  final void Function(String text) onFetch;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -34,24 +37,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _paste() async {
     final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
     if (!mounted) return;
-    final url = extractFirstUrl(text);
-    if (url == null) {
+    final urls = extractAllUrls(text);
+    if (urls.isEmpty) {
       _showMessage('There is no link on the clipboard.');
       return;
     }
-    _controller.text = url;
+    _controller.text = urls.join('\n');
     _submit();
   }
 
   void _submit() {
-    final url = extractFirstUrl(_controller.text) ?? _controller.text.trim();
-    if (url.isEmpty) {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
       _showMessage('Paste a link first.');
       return;
     }
     _focus.unfocus();
-    ref.read(incomingLinkControllerProvider.notifier).markHandled(url);
-    widget.onFetch(url);
+    final links = ref.read(incomingLinkControllerProvider.notifier);
+    extractAllUrls(text).forEach(links.markHandled);
+    widget.onFetch(text);
   }
 
   void _useClipboardLink(String url) {
@@ -80,10 +84,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       incomingLinkControllerProvider.select((links) => links.clipboard),
     );
     final updating = engine.value?.isUpdating ?? false;
+    final batch = ref.watch(batchControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SaveKit'),
+        title: const Row(
+          children: [
+            SaveKitLogo(size: 30),
+            SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                'SaveKit',
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+              ),
+            ),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -114,9 +132,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Paste a link, or share one to SaveKit from any app. '
-            'Everything runs on this phone.',
+          Text(
+            'Paste one link or several, or share one to SaveKit from any '
+            'app. Everything runs on this phone.',
             style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
           const SizedBox(height: 22),
@@ -125,14 +143,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             focusNode: _focus,
             keyboardType: TextInputType.url,
             textInputAction: TextInputAction.go,
+            // Grows to show several pasted links.
+            minLines: 1,
+            maxLines: 4,
             autocorrect: false,
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(
               hintText: 'https://…',
-              prefixIcon: const Icon(
-                Icons.link_rounded,
-                color: AppColors.textMuted,
-              ),
+              prefixIcon: Icon(Icons.link_rounded, color: AppColors.textMuted),
               suffixIcon: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: TextButton.icon(
@@ -159,13 +177,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   .dismissClipboard,
             ),
           ],
+          if (!batch.isEmpty) ...[
+            const SizedBox(height: 14),
+            _BatchBanner(
+              batch: batch,
+              onCancel: ref.read(batchControllerProvider.notifier).cancel,
+              onDismiss: ref.read(batchControllerProvider.notifier).dismiss,
+              onOpenFailure: (url) {
+                ref.read(batchControllerProvider.notifier).removeFailure(url);
+                widget.onFetch(url);
+              },
+            ),
+          ],
           const SizedBox(height: 14),
           _EngineStatus(
             engine: engine,
             onRetry: () => ref.invalidate(engineControllerProvider),
           ),
           const SizedBox(height: 28),
-          const Text(
+          Text(
             'WORKS WITH',
             style: TextStyle(
               color: AppColors.textMuted,
@@ -201,7 +231,7 @@ class _MorePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.control),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Text(
+      child: Text(
         '+ 1,000 more sites',
         style: TextStyle(
           fontSize: 13,
@@ -254,7 +284,7 @@ class _ClipboardBanner extends StatelessWidget {
                       url,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12.5,
                       ),
@@ -284,16 +314,16 @@ class _EngineStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(color: AppColors.textMuted, fontSize: 12.5);
+    final style = TextStyle(color: AppColors.textMuted, fontSize: 12.5);
     return engine.when(
-      loading: () => const Row(
+      loading: () => Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 12,
             height: 12,
             child: CircularProgressIndicator(strokeWidth: 1.8),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Preparing the download engine (first launch takes a moment)…',
@@ -304,7 +334,7 @@ class _EngineStatus extends StatelessWidget {
       ),
       error: (error, _) => Row(
         children: [
-          const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.danger),
+          Icon(Icons.error_outline_rounded, size: 16, color: AppColors.danger),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -319,7 +349,7 @@ class _EngineStatus extends StatelessWidget {
       ),
       data: (state) => Row(
         children: [
-          const Icon(Icons.check_circle_rounded, size: 15, color: AppColors.success),
+          Icon(Icons.check_circle_rounded, size: 15, color: AppColors.success),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -330,6 +360,148 @@ class _EngineStatus extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Progress and outcome of a batch, playlist or one-tap download.
+class _BatchBanner extends StatelessWidget {
+  const _BatchBanner({
+    required this.batch,
+    required this.onCancel,
+    required this.onDismiss,
+    required this.onOpenFailure,
+  });
+
+  final BatchState batch;
+  final VoidCallback onCancel;
+  final VoidCallback onDismiss;
+  final void Function(String url) onOpenFailure;
+
+  @override
+  Widget build(BuildContext context) {
+    final failures = batch.failures;
+    final String title;
+    if (batch.running) {
+      title = batch.total == 1
+          ? 'Reading link…'
+          : 'Reading link ${batch.done + 1} of ${batch.total}…';
+    } else if (failures.isEmpty) {
+      title = batch.queued == 1
+          ? 'Added to the queue'
+          : '${batch.queued} downloads added to the queue';
+    } else {
+      title = batch.queued == 0
+          ? 'Couldn’t read ${failures.length == 1 ? 'this link' : 'these links'}'
+          : '${batch.queued} added · ${failures.length} couldn’t be read';
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (batch.running)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Icon(
+                    failures.isEmpty
+                        ? Icons.check_circle_rounded
+                        : Icons.error_outline_rounded,
+                    size: 18,
+                    color: failures.isEmpty
+                        ? AppColors.success
+                        : AppColors.danger,
+                  ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (batch.running)
+                  TextButton(onPressed: onCancel, child: const Text('Stop'))
+                else
+                  IconButton(
+                    onPressed: onDismiss,
+                    tooltip: 'Dismiss',
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    color: AppColors.textMuted,
+                  ),
+              ],
+            ),
+            if (batch.running && batch.total > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 6, 10, 4),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    value: batch.done / batch.total,
+                  ),
+                ),
+              ),
+            for (final failure in failures.take(3))
+              InkWell(
+                onTap: () => onOpenFailure(failure.url),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 6, 10, 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              failure.url,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                            Text(
+                              failure.message,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Open',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (failures.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'and ${failures.length - 3} more',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

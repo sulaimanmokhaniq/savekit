@@ -33,7 +33,8 @@ class ReceiveSharingIntentSource implements ShareSource {
   /// For a text share the plugin puts the shared text in `path`.
   static String? _textOf(List<SharedMediaFile> files) {
     for (final file in files) {
-      if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
+      if (file.type == SharedMediaType.text ||
+          file.type == SharedMediaType.url) {
         if (file.path.isNotEmpty) return file.path;
       }
     }
@@ -87,9 +88,12 @@ class IncomingLinkController extends Notifier<IncomingLinks> {
 
     // The share that launched the app, if any.
     unawaited(
-      source.initialText().then((text) {
-        if (text != null) _onSharedText(text);
-      }).catchError((_) {}),
+      source
+          .initialText()
+          .then((text) {
+            if (text != null) _onSharedText(text);
+          })
+          .catchError((_) {}),
     );
 
     final lifecycle = AppLifecycleListener(onResume: checkClipboard);

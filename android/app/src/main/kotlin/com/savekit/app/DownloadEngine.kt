@@ -51,7 +51,7 @@ object DownloadEngine {
         val cookiesFilePath: String?,
         val extractAudio: Boolean,
         val audioFormat: String,
-        /** [ENGINE_YTDLP] or [ENGINE_GALLERY]. */
+        /** [ENGINE_YTDLP], [ENGINE_GALLERY] or [ENGINE_CONVERT]. */
         val engine: String,
         /** Files expected from a photo post, for its progress percentage; 0 when unknown. */
         val itemCount: Int,
@@ -59,6 +59,9 @@ object DownloadEngine {
 
     const val ENGINE_YTDLP = "ytdlp"
     const val ENGINE_GALLERY = "gallerydl"
+
+    /** Local video-to-audio conversion; the task's `url` is the video's file path. */
+    const val ENGINE_CONVERT = "convert"
 
     private const val TAG = "SaveKitEngine"
 
@@ -79,6 +82,7 @@ object DownloadEngine {
     /** The library switches on aria2c when the command names its bundled binary. */
     private const val ARIA2C_BINARY = "libaria2c.so"
     private const val CONNECTIONS = 8
+    private const val MAX_PLAYLIST_ENTRIES = 500
     private const val PROGRESS_INTERVAL_MS = 300L
 
     private val YTDLP_SPEED = Pattern.compile("\\bat\\s+(\\S+/s)")
@@ -293,6 +297,36 @@ object DownloadEngine {
         }
     }
 
+    /** Lists the videos of a playlist or channel page without resolving each one. */
+    fun getPlaylistInfo(url: String, cookiesFilePath: String?, result: MethodChannel.Result) {
+        executor.execute {
+            var cookies: File? = null
+            try {
+                ensureInitialized()
+                cookies = snapshotCookies(cookiesFilePath, "playlist-${System.nanoTime()}")
+                val request = YoutubeDLRequest(url)
+                    .addOption("--flat-playlist")
+                    .addOption("--dump-single-json")
+                    .addOption("--no-warnings")
+                    .addOption("--playlist-end", MAX_PLAYLIST_ENTRIES)
+                if (cookies != null) request.addOption("--cookies", cookies.absolutePath)
+
+                val response = YoutubeDL.getInstance().execute(request, null, null)
+                val json = response.out.trim()
+                if (json.isEmpty()) {
+                    throw YoutubeDLException(
+                        response.err.ifBlank { "No playlist information was returned." },
+                    )
+                }
+                succeed(result, MediaInfoParser.parsePlaylist(json, url))
+            } catch (e: Throwable) {
+                fail(result, ERROR_EXTRACT, e)
+            } finally {
+                cookies?.delete()
+            }
+        }
+    }
+
     private fun extractVideoInfo(url: String, cookies: File?): Map<String, Any?> {
         val request = YoutubeDLRequest(url)
             .addOption("--dump-single-json")
@@ -407,7 +441,8 @@ object DownloadEngine {
         if (!activeTasks.contains(taskId)) return false
         canceledTasks.add(taskId)
         return try {
-            GalleryEngine.cancel(taskId) || YoutubeDL.getInstance().destroyProcessById(taskId)
+            ConverterEngine.cancel(taskId) || GalleryEngine.cancel(taskId) ||
+                YoutubeDL.getInstance().destroyProcessById(taskId)
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to destroy process $taskId", e)
             false
@@ -430,6 +465,12 @@ object DownloadEngine {
             }
             pathFile.delete()
             cookies = snapshotCookies(request.cookiesFilePath, "task-$taskId")
+
+            if (request.engine == ENGINE_CONVERT) {
+                val file = convertToAudio(request, outputDir)
+                emit(completedEvent(taskId, listOf(file)))
+                return
+            }
 
             if (request.engine == ENGINE_GALLERY) {
                 val files = downloadGallery(request, outputDir, cookies)
@@ -483,7 +524,7 @@ object DownloadEngine {
             emit(completedEvent(taskId, files))
         } catch (e: Throwable) {
             if (e is YoutubeDL.CanceledException || e is GalleryEngine.CanceledException ||
-                canceledTasks.contains(taskId)
+                e is ConverterEngine.CanceledException || canceledTasks.contains(taskId)
             ) {
                 emit(progressEvent(taskId, STATUS_CANCELED, progress.lastPercent, "", -1))
             } else {
@@ -499,6 +540,26 @@ object DownloadEngine {
             activeTasks.remove(taskId)
             canceledTasks.remove(taskId)
         }
+    }
+
+    /** Converter: turns a video already on the phone into an audio file with FFmpeg. */
+    private fun convertToAudio(request: DownloadRequest, outputDir: File): File {
+        val taskId = request.taskId
+        val input = File(request.url)
+        var lastEmit = 0L
+        val output = ConverterEngine.convert(
+            appContext, taskId, input, outputDir, request.audioFormat,
+        ) { percent, speed ->
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                lastEmit = now
+                emit(progressEvent(taskId, STATUS_DOWNLOADING, percent, speed, -1))
+            }
+        }
+        // A video picked from elsewhere on the phone was copied into the cache first;
+        // that copy is no longer needed. Files in the user's own folders are never touched.
+        if (input.absolutePath.startsWith(appContext.cacheDir.absolutePath)) input.delete()
+        return output
     }
 
     /** Photo posts: gallery-dl saves the files one by one, so progress is counted per file. */
@@ -615,6 +676,17 @@ object DownloadEngine {
     }
 
     // endregion
+
+    /** Runs [work] off the main thread and answers [result] with its value or its error. */
+    fun runInBackground(result: MethodChannel.Result, errorCode: String, work: () -> Any?) {
+        executor.execute {
+            try {
+                succeed(result, work())
+            } catch (e: Throwable) {
+                fail(result, errorCode, e)
+            }
+        }
+    }
 
     // region shared storage
 

@@ -56,7 +56,8 @@ class WebPageSnapshot {
         ),
       );
     }
-    for (final url in (json['videos'] as List? ?? const []).whereType<String>()) {
+    for (final url
+        in (json['videos'] as List? ?? const []).whereType<String>()) {
       candidates.add(
         WebMediaCandidate(url: url, source: 'video', isVideo: true),
       );
@@ -113,8 +114,7 @@ class WebPageExtractor {
     final activeRule = finalRule.hostSuffix.isEmpty ? rule : finalRule;
     if (activeRule.isLoginWall(snapshot.finalUrl)) {
       throw WebExtractionException(
-        activeRule.loginHint ??
-            'This post needs an account. Log in under Settings → Platform Accounts.',
+        activeRule.loginHint ?? 'This post needs an account. Log in under Settings → Platform Accounts.',
         loginRequired: true,
       );
     }
@@ -268,7 +268,9 @@ class WebPageExtractor {
           // Slow page: read whatever has rendered so far.
           final controller = webView?.webViewController;
           if (controller == null) {
-            throw const WebExtractionException('The page took too long to load.');
+            throw const WebExtractionException(
+              'The page took too long to load.',
+            );
           }
           await collect(controller);
           return completer.future;

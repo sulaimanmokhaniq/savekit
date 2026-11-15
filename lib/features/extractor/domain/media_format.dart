@@ -21,7 +21,11 @@ enum DownloadEngineKind {
   gallerydl('gallerydl'),
 
   /// Plain HTTP download of addresses read from a page in the in-app WebView.
-  direct('direct');
+  direct('direct'),
+
+  /// FFmpeg conversion of a video already on the phone into audio. Needs no
+  /// network; the task's `url` is the video's file path.
+  convert('convert');
 
   const DownloadEngineKind(this.id);
   final String id;
@@ -87,6 +91,7 @@ class MediaFormat {
 
   bool get isAudio => kind == MediaFormatKind.audio;
   bool get isGallery => kind == MediaFormatKind.gallery;
+  bool get isConversion => engine == DownloadEngineKind.convert;
 
   factory MediaFormat.fromMap(Map<String, dynamic> map) {
     return MediaFormat(

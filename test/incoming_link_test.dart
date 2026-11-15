@@ -39,7 +39,8 @@ class FakeExtractor implements MediaExtractor {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 500));
+Future<void> settle() =>
+    Future<void>.delayed(const Duration(milliseconds: 500));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,22 +80,25 @@ void main() {
       expect(container.read(incomingLinkControllerProvider).shared, isNull);
     });
 
-    test('picks up shares while running and ignores text without a link', () async {
-      source = FakeShareSource();
-      final container = create();
-      await settle();
+    test(
+      'picks up shares while running and ignores text without a link',
+      () async {
+        source = FakeShareSource();
+        final container = create();
+        await settle();
 
-      source.stream.add('no link here');
-      await settle();
-      expect(container.read(incomingLinkControllerProvider).shared, isNull);
+        source.stream.add('no link here');
+        await settle();
+        expect(container.read(incomingLinkControllerProvider).shared, isNull);
 
-      source.stream.add('https://www.instagram.com/p/abc/');
-      await settle();
-      expect(
-        container.read(incomingLinkControllerProvider).shared,
-        'https://www.instagram.com/p/abc/',
-      );
-    });
+        source.stream.add('https://www.instagram.com/p/abc/');
+        await settle();
+        expect(
+          container.read(incomingLinkControllerProvider).shared,
+          'https://www.instagram.com/p/abc/',
+        );
+      },
+    );
 
     test('offers a supported clipboard link once', () async {
       source = FakeShareSource();
@@ -180,31 +184,41 @@ void main() {
     test('goes from loading to loaded', () async {
       final fetch = notifier().fetch(' https://youtu.be/a ');
       expect(state(), isA<ExtractionLoading>());
-      extractor.pending['https://youtu.be/a']!.complete(media('https://youtu.be/a'));
+      extractor.pending['https://youtu.be/a']!.complete(
+        media('https://youtu.be/a'),
+      );
       await fetch;
       expect((state() as ExtractionLoaded).info.title, 'T');
     });
 
-    test('rejects text that is not a link without calling the extractor', () async {
-      await notifier().fetch('hello');
-      expect(state(), isA<ExtractionFailed>());
-      expect(extractor.pending, isEmpty);
-    });
+    test(
+      'rejects text that is not a link without calling the extractor',
+      () async {
+        await notifier().fetch('hello');
+        expect(state(), isA<ExtractionFailed>());
+        expect(extractor.pending, isEmpty);
+      },
+    );
 
-    test('reports extractor errors and whether logging in would help', () async {
-      final fetch = notifier().fetch('https://www.instagram.com/p/a/');
-      extractor.pending.values.single.completeError(
-        const MediaExtractionException('Login required', loginRequired: true),
-      );
-      await fetch;
-      final failed = state() as ExtractionFailed;
-      expect(failed.message, 'Login required');
-      expect(failed.loginRequired, isTrue);
-    });
+    test(
+      'reports extractor errors and whether logging in would help',
+      () async {
+        final fetch = notifier().fetch('https://www.instagram.com/p/a/');
+        extractor.pending.values.single.completeError(
+          const MediaExtractionException('Login required', loginRequired: true),
+        );
+        await fetch;
+        final failed = state() as ExtractionFailed;
+        expect(failed.message, 'Login required');
+        expect(failed.loginRequired, isTrue);
+      },
+    );
 
     test('treats a result with no options as a failure', () async {
       final fetch = notifier().fetch('https://youtu.be/a');
-      extractor.pending.values.single.complete(media('https://youtu.be/a', empty: true));
+      extractor.pending.values.single.complete(
+        media('https://youtu.be/a', empty: true),
+      );
       await fetch;
       expect(state(), isA<ExtractionFailed>());
     });
@@ -233,6 +247,9 @@ void main() {
   });
 
   test('EngineException keeps the extractor message', () {
-    expect(const EngineException('X', 'Video unavailable').toString(), 'Video unavailable');
+    expect(
+      const EngineException('X', 'Video unavailable').toString(),
+      'Video unavailable',
+    );
   });
 }

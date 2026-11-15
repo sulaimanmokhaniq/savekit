@@ -76,6 +76,7 @@ class DownloadTask {
 
   String? get filePath => filePaths.isEmpty ? null : filePaths.first;
   bool get isActive => status.isActive;
+  bool get canResume => status == DownloadStatus.paused;
   bool get canRetry =>
       status == DownloadStatus.failed || status == DownloadStatus.canceled;
 
@@ -172,8 +173,7 @@ class DownloadTask {
       speed: map['speed'] as String? ?? '',
       eta: (map['eta'] as num?)?.toInt() ?? -1,
       filePaths:
-          (map['filePaths'] as List?)?.whereType<String>().toList() ??
-          const [],
+          (map['filePaths'] as List?)?.whereType<String>().toList() ?? const [],
       fileSize: (map['fileSize'] as num?)?.toInt(),
       error: map['error'] as String?,
       completedAt: completedAt == null

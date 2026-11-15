@@ -8,7 +8,17 @@ enum SavedFileKind { image, video, audio, other }
 
 SavedFileKind savedFileKindOf(String path) {
   final extension = p.extension(path).replaceFirst('.', '').toLowerCase();
-  const images = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'avif', 'bmp'};
+  const images = {
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'gif',
+    'heic',
+    'heif',
+    'avif',
+    'bmp',
+  };
   const videos = {'mp4', 'mov', 'webm', 'mkv', 'm4v', '3gp', 'avi'};
   const audio = {'mp3', 'm4a', 'aac', 'opus', 'ogg', 'wav', 'flac'};
   if (images.contains(extension)) return SavedFileKind.image;

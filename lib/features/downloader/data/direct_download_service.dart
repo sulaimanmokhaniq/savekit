@@ -170,7 +170,9 @@ class DirectDownloadService {
       WebPageExtractor.desktopUserAgent,
     );
     request.headers.set(HttpHeaders.acceptHeader, '*/*');
-    if (referer != null) request.headers.set(HttpHeaders.refererHeader, referer);
+    if (referer != null) {
+      request.headers.set(HttpHeaders.refererHeader, referer);
+    }
     final cookies = await _cookieHeader(url);
     if (cookies != null && cookies.isNotEmpty) {
       request.headers.set(HttpHeaders.cookieHeader, cookies);
@@ -275,7 +277,9 @@ class DirectDownloadService {
     if (perSecond >= 1024 * 1024) {
       return '${(perSecond / (1024 * 1024)).toStringAsFixed(1)}MiB/s';
     }
-    if (perSecond >= 1024) return '${(perSecond / 1024).toStringAsFixed(0)}KiB/s';
+    if (perSecond >= 1024) {
+      return '${(perSecond / 1024).toStringAsFixed(0)}KiB/s';
+    }
     return '${perSecond.toStringAsFixed(0)}B/s';
   }
 

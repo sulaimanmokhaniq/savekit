@@ -89,7 +89,7 @@ class _Loading extends StatelessWidget {
             url,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
           ),
         ],
       ),
@@ -110,7 +110,7 @@ class _Failed extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 32),
+          Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 32),
           const SizedBox(height: 12),
           const Text(
             'Couldn’t read this link',
@@ -123,7 +123,7 @@ class _Failed extends ConsumerWidget {
             textAlign: TextAlign.center,
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textMuted, height: 1.4),
+            style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
           const SizedBox(height: 20),
           if (state.loginRequired) ...[
@@ -286,7 +286,10 @@ class _Header extends StatelessWidget {
                 right: 6,
                 bottom: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.72),
                     borderRadius: BorderRadius.circular(6),
@@ -328,7 +331,7 @@ class _Header extends StatelessWidget {
                       details,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 13,
                       ),

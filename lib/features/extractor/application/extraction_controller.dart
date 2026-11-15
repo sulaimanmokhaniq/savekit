@@ -55,7 +55,10 @@ class ExtractionController extends Notifier<ExtractionState> {
       final info = await ref.read(mediaExtractorProvider).fetch(trimmed);
       if (request != _request) return;
       state = info.allOptions.isEmpty
-          ? ExtractionFailed(trimmed, 'Nothing downloadable was found at this link.')
+          ? ExtractionFailed(
+              trimmed,
+              'Nothing downloadable was found at this link.',
+            )
           : ExtractionLoaded(info);
     } on MediaExtractionException catch (error) {
       if (request != _request) return;

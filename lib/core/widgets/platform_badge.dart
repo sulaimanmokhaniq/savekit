@@ -31,6 +31,14 @@ import '../theme/app_theme.dart';
       icon: Icons.thumb_up_alt_outlined,
       color: const Color(0xFF6C8CFF),
     ),
+    MediaPlatform.whatsapp => (
+      icon: Icons.chat_bubble_outline_rounded,
+      color: const Color(0xFF4ADE80),
+    ),
+    MediaPlatform.device => (
+      icon: Icons.smartphone_rounded,
+      color: AppColors.textMuted,
+    ),
     MediaPlatform.other => (
       icon: Icons.public_rounded,
       color: AppColors.textMuted,

@@ -60,13 +60,14 @@ final downloadRepositoryProvider = Provider<DownloadRepository>(
 /// Downloads proceed whatever the answer.
 typedef NotificationPermissionRequester = Future<void> Function();
 
-final notificationPermissionProvider = Provider<NotificationPermissionRequester>(
-  (ref) => () async {
-    try {
-      if (await Permission.notification.isGranted) return;
-      await Permission.notification.request();
-    } catch (_) {
-      // Not available on this platform or already settled.
-    }
-  },
-);
+final notificationPermissionProvider =
+    Provider<NotificationPermissionRequester>(
+      (ref) => () async {
+        try {
+          if (await Permission.notification.isGranted) return;
+          await Permission.notification.request();
+        } catch (_) {
+          // Not available on this platform or already settled.
+        }
+      },
+    );

@@ -105,7 +105,7 @@ class EmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(color: AppColors.textMuted, height: 1.4),
             ),
           ],
         ),

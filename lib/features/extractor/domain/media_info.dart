@@ -90,12 +90,12 @@ class MediaInfo {
   ];
 
   /// The option to preselect.
-  MediaFormat? get defaultOption => allOptions.isEmpty ? null : allOptions.first;
+  MediaFormat? get defaultOption =>
+      allOptions.isEmpty ? null : allOptions.first;
 
   factory MediaInfo.fromMap(Map<String, dynamic> map) {
-    List<MediaFormat> formats(String key) => _maps(map[key])
-        .map(MediaFormat.fromMap)
-        .toList(growable: false);
+    List<MediaFormat> formats(String key) =>
+        _maps(map[key]).map(MediaFormat.fromMap).toList(growable: false);
     MediaFormat? format(String key) {
       final value = _map(map[key]);
       return value == null ? null : MediaFormat.fromMap(value);

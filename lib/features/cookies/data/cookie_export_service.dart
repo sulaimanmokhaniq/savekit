@@ -69,7 +69,10 @@ class CookieExportService {
 
     // Write to a sibling and rename, so an extractor never reads half a file.
     final temp = File('${file.path}.tmp');
-    await temp.writeAsString(NetscapeCookieFile.serialize(cookies), flush: true);
+    await temp.writeAsString(
+      NetscapeCookieFile.serialize(cookies),
+      flush: true,
+    );
     await temp.rename(file.path);
     return file.path;
   }

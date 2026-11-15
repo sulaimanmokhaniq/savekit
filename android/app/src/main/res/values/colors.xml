@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ember accent: launcher icon background and notification tint. -->
+    <color name="ic_launcher_background">#FF6A2B</color>
+    <color name="notification_accent">#FF6A2B</color>
+</resources>

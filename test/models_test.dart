@@ -61,8 +61,19 @@ Map<String, dynamic> engineInfo() => {
     'videoCount': 0,
   },
   'galleryItems': <Object?>[
-    <Object?, Object?>{'url': 'https://img/a.jpg', 'extension': 'jpg', 'width': 1080, 'height': 1350, 'isVideo': false, 'thumbnail': 'https://img/a.jpg'},
-    <Object?, Object?>{'url': 'https://img/b.jpg', 'extension': 'jpg', 'isVideo': false},
+    <Object?, Object?>{
+      'url': 'https://img/a.jpg',
+      'extension': 'jpg',
+      'width': 1080,
+      'height': 1350,
+      'isVideo': false,
+      'thumbnail': 'https://img/a.jpg',
+    },
+    <Object?, Object?>{
+      'url': 'https://img/b.jpg',
+      'extension': 'jpg',
+      'isVideo': false,
+    },
   ],
 };
 
@@ -100,7 +111,10 @@ void main() {
     });
 
     test('tolerates a sparse map', () {
-      final sparse = MediaInfo.fromMap({'url': 'https://e.com', 'galleryOption': null});
+      final sparse = MediaInfo.fromMap({
+        'url': 'https://e.com',
+        'galleryOption': null,
+      });
       expect(sparse.title, 'Untitled');
       expect(sparse.platform, MediaPlatform.other);
       expect(sparse.allOptions, isEmpty);

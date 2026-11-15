@@ -7,7 +7,10 @@ enum DownloadStatus {
   processing,
   completed,
   failed,
-  canceled;
+  canceled,
+
+  /// Stopped by the user, keeping the partial file so it can continue.
+  paused;
 
   static DownloadStatus fromName(String? name) =>
       values.firstWhere((status) => status.name == name, orElse: () => queued);
@@ -17,7 +20,7 @@ enum DownloadStatus {
       this == completed || this == failed || this == canceled;
 
   /// Waiting or running.
-  bool get isActive => !isTerminal;
+  bool get isActive => this == queued || isRunning;
 
   /// Occupying an extractor process right now.
   bool get isRunning =>
@@ -70,8 +73,7 @@ class DownloadProgress {
       eta: (map['eta'] as num?)?.toInt() ?? -1,
       filePath: map['filePath'] as String?,
       filePaths:
-          (map['filePaths'] as List?)?.whereType<String>().toList() ??
-          const [],
+          (map['filePaths'] as List?)?.whereType<String>().toList() ?? const [],
       fileSize: (map['fileSize'] as num?)?.toInt(),
       error: map['error'] as String?,
     );

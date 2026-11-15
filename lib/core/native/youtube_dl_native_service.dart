@@ -52,6 +52,46 @@ class EngineUpdateResult {
   bool get anythingUpdated => updated || galleryUpdated;
 }
 
+/// One video of a playlist, not yet looked up.
+class PlaylistEntry {
+  const PlaylistEntry({required this.url, required this.title, this.duration});
+
+  final String url;
+  final String title;
+  final int? duration;
+}
+
+/// A playlist's title and entries.
+class PlaylistInfo {
+  const PlaylistInfo({
+    required this.url,
+    required this.title,
+    required this.entries,
+    this.uploader,
+  });
+
+  final String url;
+  final String title;
+  final String? uploader;
+  final List<PlaylistEntry> entries;
+
+  factory PlaylistInfo.fromMap(Map<String, dynamic> map) => PlaylistInfo(
+    url: map['url'] as String? ?? '',
+    title: map['title'] as String? ?? 'Playlist',
+    uploader: map['uploader'] as String?,
+    entries: [
+      for (final entry
+          in (map['entries'] as List? ?? const []).whereType<Map>())
+        if (entry['url'] is String)
+          PlaylistEntry(
+            url: entry['url'] as String,
+            title: entry['title'] as String? ?? 'Untitled',
+            duration: (entry['duration'] as num?)?.toInt(),
+          ),
+    ],
+  );
+}
+
 /// Dart side of the Kotlin bridge: every on-device extraction and download
 /// goes through here.
 class YoutubeDlNativeService {
@@ -112,6 +152,18 @@ class YoutubeDlNativeService {
       'cookiesFilePath': cookiesFilePath,
     });
     return MediaInfo.fromMap(result);
+  }
+
+  /// Lists the videos of a playlist without looking each one up.
+  Future<PlaylistInfo> getPlaylistInfo(
+    String url, {
+    String? cookiesFilePath,
+  }) async {
+    final result = await _invokeMap('getPlaylistInfo', {
+      'url': url,
+      'cookiesFilePath': cookiesFilePath,
+    });
+    return PlaylistInfo.fromMap(result);
   }
 
   /// Starts a native download. Returns once the task is accepted; progress and

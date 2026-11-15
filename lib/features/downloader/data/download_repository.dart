@@ -71,5 +71,6 @@ class InMemoryDownloadRepository implements DownloadRepository {
   Future<void> delete(String id) async => _tasks.remove(id);
 
   @override
-  Future<void> deleteAll(Iterable<String> ids) async => ids.forEach(_tasks.remove);
+  Future<void> deleteAll(Iterable<String> ids) async =>
+      ids.forEach(_tasks.remove);
 }

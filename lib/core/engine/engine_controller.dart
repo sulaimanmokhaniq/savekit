@@ -79,7 +79,8 @@ class EngineController extends AsyncNotifier<EngineState> {
 
     final updated = <String>[
       if (result?.updated ?? false) 'yt-dlp ${result!.version}',
-      if (result?.galleryUpdated ?? false) 'gallery-dl ${result!.galleryVersion}',
+      if (result?.galleryUpdated ?? false)
+        'gallery-dl ${result!.galleryVersion}',
       if (rulesUpdated) 'page rules',
     ];
     final String message;

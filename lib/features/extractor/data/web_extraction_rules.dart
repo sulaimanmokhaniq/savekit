@@ -176,9 +176,10 @@ class WebExtractionRules {
     );
   }
 
-  factory WebExtractionRules.parse(String source) => WebExtractionRules.fromJson(
-    Map<String, dynamic>.from(jsonDecode(source) as Map),
-  );
+  factory WebExtractionRules.parse(String source) =>
+      WebExtractionRules.fromJson(
+        Map<String, dynamic>.from(jsonDecode(source) as Map),
+      );
 
   final int version;
   final SiteRule defaultRule;
@@ -241,7 +242,8 @@ class WebExtractionRulesStore {
   /// Fetches the latest rules. Returns true when a newer set was installed.
   Future<bool> updateFromRemote() async {
     final current = await load();
-    final client = _httpClient()..connectionTimeout = const Duration(seconds: 15);
+    final client = _httpClient()
+      ..connectionTimeout = const Duration(seconds: 15);
     try {
       final request = await client.getUrl(Uri.parse(remoteUrl));
       final response = await request.close().timeout(

@@ -94,6 +94,38 @@ object MediaInfoParser {
         )
     }
 
+    /**
+     * Reads `yt-dlp --flat-playlist --dump-single-json` output: the playlist's title and the
+     * address and title of each entry, without resolving the entries themselves.
+     */
+    fun parsePlaylist(json: String, requestedUrl: String): Map<String, Any?> {
+        val root = JSONObject(json)
+        val entries = root.optJSONArray("entries")
+        val items = ArrayList<Map<String, Any?>>()
+        if (entries != null) {
+            for (i in 0 until entries.length()) {
+                val entry = entries.optJSONObject(i) ?: continue
+                val url = entry.optStringOrNull("webpage_url")
+                    ?: entry.optStringOrNull("url")
+                    ?: continue
+                if (!url.startsWith("http")) continue
+                items.add(
+                    mapOf(
+                        "url" to url,
+                        "title" to (entry.optStringOrNull("title") ?: "Untitled"),
+                        "duration" to entry.optDoubleOrNull("duration")?.toInt(),
+                    ),
+                )
+            }
+        }
+        return mapOf(
+            "url" to requestedUrl,
+            "title" to (root.optStringOrNull("title") ?: "Playlist"),
+            "uploader" to (root.optStringOrNull("uploader") ?: root.optStringOrNull("channel")),
+            "entries" to items,
+        )
+    }
+
     private fun firstEntry(entries: JSONArray?): JSONObject? {
         if (entries == null) return null
         for (i in 0 until entries.length()) {

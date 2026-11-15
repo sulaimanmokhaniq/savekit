@@ -17,19 +17,40 @@ class QueueScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = ref.watch(activeDownloadsProvider);
     final hasFailed = tasks.any((task) => task.canRetry);
+    final hasActive = tasks.any((task) => task.isActive);
+    final hasPaused = tasks.any((task) => task.canResume);
+    final waitingForWifi = ref.watch(waitingForWifiProvider);
+    final controller = ref.read(downloadQueueControllerProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Queue'),
         actions: [
-          if (hasFailed)
-            TextButton(
-              onPressed: ref
-                  .read(downloadQueueControllerProvider.notifier)
-                  .clearFailed,
-              child: const Text('Clear failed'),
+          if (hasActive || hasPaused || hasFailed)
+            PopupMenuButton<String>(
+              tooltip: 'Queue actions',
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (value) => switch (value) {
+                'pause' => controller.pauseAll(),
+                'resume' => controller.resumeAll(),
+                _ => controller.clearFailed(),
+              },
+              itemBuilder: (_) => [
+                if (hasActive)
+                  const PopupMenuItem(value: 'pause', child: Text('Pause all')),
+                if (hasPaused)
+                  const PopupMenuItem(
+                    value: 'resume',
+                    child: Text('Resume all'),
+                  ),
+                if (hasFailed)
+                  const PopupMenuItem(
+                    value: 'clear',
+                    child: Text('Clear failed'),
+                  ),
+              ],
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       body: tasks.isEmpty
@@ -40,12 +61,44 @@ class QueueScreen extends ConsumerWidget {
                   'Downloads you start show up here with live progress. '
                   'Finished ones move to the Vault.',
             )
-          : ListView.separated(
+          : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              itemCount: tasks.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) =>
-                  _TaskCard(key: ValueKey(tasks[index].id), task: tasks[index]),
+              children: [
+                if (waitingForWifi)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.card),
+                        border: Border.all(color: AppColors.warning),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.wifi_off_rounded,
+                            color: AppColors.warning,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Waiting for Wi-Fi. Downloads start when the '
+                              'phone is back on Wi-Fi.',
+                              style: TextStyle(fontSize: 13, height: 1.35),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                for (final task in tasks)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _TaskCard(key: ValueKey(task.id), task: task),
+                  ),
+              ],
             ),
     );
   }
@@ -104,7 +157,7 @@ class _TaskCard extends ConsumerWidget {
                               '${task.platform.label} · ${task.format.label}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 12.5,
                               ),
@@ -115,14 +168,30 @@ class _TaskCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (task.isActive)
+                if (task.isActive || task.canResume) ...[
+                  IconButton(
+                    onPressed: () => task.canResume
+                        ? controller.resume(task.id)
+                        : controller.pause(task.id),
+                    tooltip: task.canResume ? 'Resume' : 'Pause',
+                    icon: Icon(
+                      task.canResume
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                    ),
+                    color: task.canResume
+                        ? AppColors.accent
+                        : AppColors.textMuted,
+                    visualDensity: VisualDensity.compact,
+                  ),
                   IconButton(
                     onPressed: () => controller.cancel(task.id),
                     tooltip: 'Cancel',
                     icon: const Icon(Icons.close_rounded),
                     color: AppColors.textMuted,
-                  )
-                else
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ] else
                   IconButton(
                     onPressed: () => controller.remove(task.id),
                     tooltip: 'Remove',
@@ -132,7 +201,7 @@ class _TaskCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            if (task.isActive) ...[
+            if (task.isActive || task.canResume) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
@@ -196,6 +265,9 @@ class _ProgressLine extends StatelessWidget {
       case DownloadStatus.queued:
         left = 'Waiting…';
         right = '';
+      case DownloadStatus.paused:
+        left = 'Paused';
+        right = '${task.progressPercent.round()}%';
       case DownloadStatus.starting:
         left = 'Starting…';
         right = '';
@@ -209,10 +281,10 @@ class _ProgressLine extends StatelessWidget {
         ].join(' · ');
         right = formatEta(task.eta);
     }
-    const style = TextStyle(
+    final style = TextStyle(
       color: AppColors.textMuted,
       fontSize: 12.5,
-      fontFeatures: [FontFeature.tabularFigures()],
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
     return Row(
       children: [

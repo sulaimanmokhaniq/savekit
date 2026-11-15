@@ -88,9 +88,9 @@ class _Missing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Text(
           'This file is no longer on the phone.',
           textAlign: TextAlign.center,
@@ -120,9 +120,13 @@ class _FileView extends StatelessWidget {
           ),
         ),
       ),
-      SavedFileKind.video => _Player(path: path, audioOnly: false, title: title),
+      SavedFileKind.video => _Player(
+        path: path,
+        audioOnly: false,
+        title: title,
+      ),
       SavedFileKind.audio => _Player(path: path, audioOnly: true, title: title),
-      SavedFileKind.other => const Center(
+      SavedFileKind.other => Center(
         child: Text(
           'This file type can’t be previewed. Use Share to open it.',
           style: TextStyle(color: AppColors.textMuted),
@@ -193,9 +197,9 @@ class _PlayerState extends State<_Player> {
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Text(
             'This file can’t be played here. Use Share to open it in another app.',
             textAlign: TextAlign.center,
@@ -233,7 +237,7 @@ class _PlayerState extends State<_Player> {
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(color: AppColors.border),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.graphic_eq_rounded,
                             size: 52,
                             color: AppColors.accent,
@@ -284,10 +288,10 @@ class _PlayerState extends State<_Player> {
                   formatDuration(value.position.inSeconds).isEmpty
                       ? '0:00'
                       : formatDuration(value.position.inSeconds),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textMuted,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Expanded(
@@ -303,10 +307,10 @@ class _PlayerState extends State<_Player> {
                 ),
                 Text(
                   formatDuration(value.duration.inSeconds),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textMuted,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],

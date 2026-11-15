@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/engine/engine_controller.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/platform_badge.dart';
+import '../../../core/widgets/savekit_logo.dart';
+import '../../vault/application/vault_lock.dart';
 import '../application/accounts_controller.dart';
 import '../domain/platform_account.dart';
 import 'login_webview_screen.dart';
@@ -29,19 +32,120 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
+  /// Turning the lock on or off itself needs a successful unlock, so the
+  /// setting cannot be changed by someone who merely holds the phone.
+  Future<void> _setVaultLock(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final lock = ref.read(vaultLockServiceProvider);
+    if (!await lock.isAvailable()) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Set up a screen lock or fingerprint on this phone first.',
+          ),
+        ),
+      );
+      return;
+    }
+    final confirmed = await lock.authenticate(
+      enabled
+          ? 'Confirm to lock the Vault'
+          : 'Confirm to remove the Vault lock',
+    );
+    if (!confirmed) return;
+    ref.read(settingsControllerProvider.notifier).setLockVault(enabled);
+    // Enabling it should not immediately lock the user out of this session.
+    if (enabled) ref.read(vaultUnlockedProvider.notifier).unlock();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountsControllerProvider);
     final engine = ref.watch(engineControllerProvider);
+    final settings = ref.watch(settingsControllerProvider);
+    final settingsController = ref.read(settingsControllerProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
+          const _SectionTitle('THEME'),
+          _ThemePicker(
+            selectedId: settings.themeId,
+            onSelect: settingsController.setTheme,
+          ),
+          const SizedBox(height: 22),
+          const _SectionTitle('DOWNLOADS'),
+          Card(
+            child: Column(
+              children: [
+                _ChoiceRow<QualityPreference>(
+                  icon: Icons.bolt_rounded,
+                  title: 'One-tap download',
+                  subtitle:
+                      'Quality used when you share a link to SaveKit, '
+                      'skipping the picker.',
+                  value: settings.oneTap,
+                  values: QualityPreference.values,
+                  labelOf: (value) => value.label,
+                  onChanged: settingsController.setOneTap,
+                ),
+                const Divider(),
+                SwitchListTile(
+                  value: settings.wifiOnly,
+                  onChanged: settingsController.setWifiOnly,
+                  secondary: Icon(
+                    Icons.wifi_rounded,
+                    color: AppColors.textMuted,
+                  ),
+                  title: const Text('Wi-Fi only'),
+                  subtitle: Text(
+                    'Downloads wait until the phone is on Wi-Fi.',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                _ChoiceRow<int>(
+                  icon: Icons.layers_outlined,
+                  title: 'Downloads at once',
+                  subtitle: 'More is faster on a good connection.',
+                  value: settings.maxConcurrent,
+                  values: const [1, 2, 3, 4, 5],
+                  labelOf: (value) => '$value',
+                  onChanged: settingsController.setMaxConcurrent,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          const _SectionTitle('PRIVACY'),
+          Card(
+            child: SwitchListTile(
+              value: settings.lockVault,
+              onChanged: (value) => _setVaultLock(context, ref, value),
+              secondary: Icon(
+                Icons.fingerprint_rounded,
+                color: AppColors.textMuted,
+              ),
+              title: const Text('Lock the Vault'),
+              subtitle: Text(
+                'Ask for fingerprint, face or screen lock to open it.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
           const _SectionTitle('PLATFORM ACCOUNTS'),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 12),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               'Log in to save stories, private or age-restricted posts. '
               'Your session stays on this phone.',
@@ -55,8 +159,9 @@ class SettingsScreen extends ConsumerWidget {
                 account: account,
                 signedIn: accounts.value?[account],
                 onLogin: () => _login(context, ref, account),
-                onLogout: () =>
-                    ref.read(accountsControllerProvider.notifier).logout(account),
+                onLogout: () => ref
+                    .read(accountsControllerProvider.notifier)
+                    .logout(account),
               ),
             ),
           const SizedBox(height: 18),
@@ -76,9 +181,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           const _SectionTitle('STORAGE'),
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(14),
+              padding: const EdgeInsets.all(14),
               child: Text(
                 'Photos and videos are copied to the “SaveKit” album in your '
                 'gallery, audio to Music/SaveKit. The Vault keeps its own copy '
@@ -88,7 +193,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
+          Text(
             'Only download media you have the right to save.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
@@ -110,7 +215,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -182,7 +287,7 @@ class _AccountCard extends StatelessWidget {
                               : 'Not signed in',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 12.5,
                           ),
@@ -241,7 +346,7 @@ class _EngineCard extends StatelessWidget {
             children: [
               Text(
                 'The engine failed to start: $error',
-                style: const TextStyle(color: AppColors.danger, height: 1.4),
+                style: TextStyle(color: AppColors.danger, height: 1.4),
               ),
               const SizedBox(height: 12),
               OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
@@ -291,7 +396,7 @@ class _EngineCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Update when a site stops working; platforms change often.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
@@ -326,22 +431,166 @@ class _VersionRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 detail,
-                style: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12.5,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
               ),
             ],
           ),
         ),
         Text(
           version.isEmpty ? 'unavailable' : version,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textMuted,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The selectable colour themes, each previewed with its own colours.
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker({required this.selectedId, required this.onSelect});
+
+  final String selectedId;
+  final void Function(String id) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 132,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: AppPalette.all.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final palette = AppPalette.all[index];
+          final selected = palette.id == selectedId;
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: '${palette.name} theme',
+            child: InkWell(
+              onTap: () => onSelect(palette.id),
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              child: Container(
+                width: 104,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: palette.background,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(
+                    color: selected ? palette.accent : palette.border,
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SaveKitLogo(size: 26, palette: palette),
+                        const Spacer(),
+                        if (selected)
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: palette.accent,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // A miniature card and progress bar in the theme's colours.
+                    Container(
+                      height: 30,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: palette.border),
+                      ),
+                      alignment: Alignment.center,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: 0.62,
+                          minHeight: 5,
+                          color: palette.accent,
+                          backgroundColor: palette.surfaceHigh,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      palette.name,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A settings row whose value is picked from a short list in a menu.
+class _ChoiceRow<T> extends StatelessWidget {
+  const _ChoiceRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.values,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final T value;
+  final List<T> values;
+  final String Function(T value) labelOf;
+  final void Function(T value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<T>(
+      tooltip: title,
+      initialValue: value,
+      onSelected: onChanged,
+      position: PopupMenuPosition.under,
+      itemBuilder: (_) => [
+        for (final option in values)
+          PopupMenuItem(value: option, child: Text(labelOf(option))),
+      ],
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.textMuted),
+        title: Text(title),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              labelOf(value),
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Icon(Icons.expand_more_rounded, color: AppColors.textMuted),
+          ],
+        ),
+      ),
     );
   }
 }
