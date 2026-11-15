@@ -10,6 +10,7 @@ third-party API: extraction, multi-connection downloading and stream merging all
 - **One-tap download**: share a link to SaveKit and it downloads at your saved quality.
 - **Queue**: pause, resume, retry, Wi-Fi only, and a choice of how many run at once.
 - **Vault**: search, sort, filter, multi-select, built-in playback, optional fingerprint lock.
+  Deleting a download removes it from the phone entirely, gallery copy included.
 - **Tools**: convert any video on the phone to MP3/M4A, save WhatsApp statuses you have
   viewed, and a storage manager with sizes, sorting and delete.
 - **Themes**: five solid-colour themes (Ember, Vault, Pulse, Tide, Classic), switchable in
@@ -38,7 +39,8 @@ third-party API: extraction, multi-connection downloading and stream merging all
 | `cancelDownload` | `taskId` | whether a process was killed |
 | `updateDownloadService` | `activeCount`, `title`, `text`, `progress` | starts, refreshes or stops the background service |
 | `notifyDownloadFinished` | `taskId`, `title`, `success` | posts the finished/failed notification |
-| `exportToMediaStore` | `path`, `audio` | copies audio to Music/SaveKit, other files to Download/SaveKit |
+| `exportToMediaStore` | `path`, `kind` | copies a file to Pictures/Movies/Music/Download `SaveKit` and returns the copy's address |
+| `deleteFromMediaStore` | `locations`, `names` | deletes exported copies, so deleting a download frees its space everywhere |
 | `getPlaylistInfo` | `url`, `cookiesFilePath?` | playlist title and entries, without resolving each |
 | `pickVideo` | none | `{path, name, size}` of a video chosen in the system picker, or null |
 | `grantStatusFolder`, `statusFolderGranted`, `forgetStatusFolder` | `business?` | access to WhatsApp's status folder |

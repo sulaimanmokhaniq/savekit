@@ -1,5 +1,6 @@
 package com.savekit.app
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -23,7 +24,8 @@ import java.io.File
  *  - cancelDownload(taskId)
  *  - updateDownloadService(activeCount, title, text, progress)
  *  - notifyDownloadFinished(taskId, title, success)
- *  - exportToMediaStore(path, audio)
+ *  - exportToMediaStore(path, kind)                 -> address of the gallery copy
+ *  - deleteFromMediaStore(locations, names)         -> true when every copy is gone
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
@@ -73,6 +75,54 @@ class MainActivity : FlutterFragmentActivity() {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
+    /**
+     * Removes exported gallery copies. Copies made by an earlier installation of the app
+     * need the user's confirmation, which Android collects in its own dialog; the call
+     * answers `true` only when every copy is gone.
+     */
+    private fun deleteExported(
+        locations: List<String>,
+        names: List<String>,
+        result: MethodChannel.Result,
+    ) {
+        Thread {
+            val outcome = try {
+                MediaStoreExporter.delete(applicationContext, locations, names)
+            } catch (e: Exception) {
+                runOnUiThread { result.error("DELETE_FAILED", e.message, null) }
+                return@Thread
+            }
+            runOnUiThread {
+                if (outcome.needConsent.isEmpty()) {
+                    result.success(true)
+                    return@runOnUiThread
+                }
+                val request = MediaStoreExporter.deleteRequest(
+                    applicationContext,
+                    outcome.needConsent,
+                )
+                if (request == null || pendingPicker != null) {
+                    result.success(false)
+                    return@runOnUiThread
+                }
+                pendingPicker = result
+                try {
+                    startIntentSenderForResult(
+                        request.intentSender,
+                        REQUEST_DELETE_MEDIA,
+                        null,
+                        0,
+                        0,
+                        0,
+                    )
+                } catch (e: Exception) {
+                    pendingPicker = null
+                    result.success(false)
+                }
+            }
+        }.start()
+    }
+
     /** Opens a system picker; the answer is delivered in [onActivityResult]. */
     private fun launchPicker(requestCode: Int, intent: Intent, result: MethodChannel.Result) {
         if (pendingPicker != null) {
@@ -91,13 +141,19 @@ class MainActivity : FlutterFragmentActivity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode != DeviceFiles.REQUEST_PICK_VIDEO &&
-            requestCode != DeviceFiles.REQUEST_STATUS_FOLDER
+            requestCode != DeviceFiles.REQUEST_STATUS_FOLDER &&
+            requestCode != REQUEST_DELETE_MEDIA
         ) {
             super.onActivityResult(requestCode, resultCode, data)
             return
         }
         val result = pendingPicker ?: return
         pendingPicker = null
+        if (requestCode == REQUEST_DELETE_MEDIA) {
+            // The user allowed (or refused) removing the gallery copies.
+            result.success(resultCode == Activity.RESULT_OK)
+            return
+        }
         val uri = DeviceFiles.pickedUri(resultCode, data)
         val pickingVideo = requestCode == DeviceFiles.REQUEST_PICK_VIDEO
 
@@ -225,10 +281,16 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 DownloadEngine.exportToMediaStore(
                     path = path,
-                    audio = call.argument<Boolean>("audio") ?: false,
+                    kind = call.argument<String>("kind") ?: "other",
                     result = result,
                 )
             }
+
+            "deleteFromMediaStore" -> deleteExported(
+                locations = call.argument<List<String>>("locations").orEmpty(),
+                names = call.argument<List<String>>("names").orEmpty(),
+                result = result,
+            )
 
             "pickVideo" -> launchPicker(
                 DeviceFiles.REQUEST_PICK_VIDEO,
@@ -286,5 +348,6 @@ class MainActivity : FlutterFragmentActivity() {
         const val ENGINE_CHANNEL = "com.app.downloader/engine"
         const val PROGRESS_CHANNEL = "com.app.downloader/progress"
         private const val ERROR_BAD_ARGS = "BAD_ARGS"
+        private const val REQUEST_DELETE_MEDIA = 7303
     }
 }

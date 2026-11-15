@@ -114,12 +114,23 @@ class FakeDirect implements DirectDownloadService {
 
 class FakeGallery implements GalleryExportService {
   final exported = <List<String>>[];
+  final deleted = <(List<String>, List<String>)>[];
   bool result = true;
 
   @override
-  Future<bool> export(List<String> paths) async {
+  Future<Map<String, String>> export(List<String> paths) async {
     exported.add(paths);
-    return result;
+    if (!result) return const {};
+    return {for (final path in paths) path: 'content://media$path'};
+  }
+
+  @override
+  Future<bool> deleteExported({
+    Iterable<String> locations = const [],
+    Iterable<String> legacyNames = const [],
+  }) async {
+    deleted.add((locations.toList(), legacyNames.toList()));
+    return true;
   }
 
   @override
@@ -390,7 +401,7 @@ void main() {
     expect(direct.canceled, isEmpty);
   });
 
-  test('remove deletes the task and its files', () async {
+  test('remove deletes the task, its files and their gallery copies', () async {
     final file = File('${directory.path}/a.mp4')..writeAsStringSync('x');
     final id = controller().enqueue(info('a'), video);
     await settle();
@@ -403,10 +414,14 @@ void main() {
     );
     await settle();
 
-    await controller().remove(id);
+    expect(task(id).exported, {file.path: 'content://media${file.path}'});
+
+    expect(await controller().remove(id), isTrue);
     expect(tasks(), isEmpty);
     expect(repository.loadAll(), isEmpty);
     expect(file.existsSync(), isFalse);
+    // The gallery copy goes too, so the space is freed everywhere.
+    expect(gallery.deleted.single.$1, ['content://media${file.path}']);
   });
 
   test('clearFailed keeps active and completed tasks', () async {

@@ -539,6 +539,8 @@ void main() {
     await tester.tap(find.text('Delete'));
     await settle(tester);
     expect(find.text('Delete this download?'), findsOneWidget);
+    // The user is told the gallery copy goes too.
+    expect(find.textContaining('everywhere on this phone'), findsOneWidget);
     await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await settle(tester);
 
@@ -631,6 +633,7 @@ void main() {
     await tester.tap(find.text('Delete 1 · 9.0 MB'));
     await settle(tester);
     expect(find.text('Delete this file?'), findsOneWidget);
+    expect(find.textContaining('everywhere on this phone'), findsOneWidget);
   });
 
   testWidgets('tools: converter queues a picked video', (tester) async {
@@ -714,13 +717,18 @@ void main() {
             )
             .at(1),
       );
+      await tester.ensureVisible(card);
+      await tester.pump();
       await tester.tap(card);
       await settle(tester);
       // Still on Settings after the whole app rebuilt in the new colours.
-      expect(find.text('THEME'), findsOneWidget);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.text('DOWNLOADS'), findsOneWidget);
       expect(AppColors.current.name, name);
       expect(
-        Theme.of(tester.element(find.text('THEME'))).colorScheme.primary,
+        Theme.of(tester.element(find.byType(SettingsScreen)))
+            .colorScheme
+            .primary,
         AppColors.current.accent,
       );
       await shoot(tester, '16_settings_${name.toLowerCase()}');

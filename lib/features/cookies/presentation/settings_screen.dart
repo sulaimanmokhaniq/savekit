@@ -185,9 +185,9 @@ class SettingsScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Text(
-                'Photos and videos are copied to the “SaveKit” album in your '
-                'gallery, audio to Music/SaveKit. The Vault keeps its own copy '
-                'for playback.',
+                'Photos and videos also appear in your gallery under “SaveKit”, '
+                'and audio in Music/SaveKit. Deleting a download in SaveKit '
+                'deletes it from the gallery too, so the space is really freed.',
                 style: TextStyle(color: AppColors.textMuted, height: 1.4),
               ),
             ),

@@ -172,6 +172,7 @@ void main() {
     late InMemoryDownloadRepository repository;
     late ProviderContainer container;
     late Directory directory;
+    late UiFakeGallery gallery;
 
     ProviderContainer create(
       AppSettings settings, {
@@ -184,6 +185,7 @@ void main() {
           connectivity: connectivity,
           extractor: extractor,
           repository: repository,
+          gallery: gallery,
           paths: AppPaths(externalDirectory: () async => directory),
         ),
       );
@@ -201,6 +203,7 @@ void main() {
     setUp(() async {
       native = UiFakeNative()..cancelStops = true;
       connectivity = FakeConnectivity();
+      gallery = UiFakeGallery();
       repository = InMemoryDownloadRepository();
       directory = await Directory.systemTemp.createTemp('savekit_controls');
     });
@@ -341,8 +344,11 @@ void main() {
         expect(storage.files.map((f) => f.size), unorderedEquals([4, 2]));
         expect(storage.totalBytes, 6);
 
-        await queue().deleteFiles({one.path});
+        expect(await queue().deleteFiles({one.path}), isTrue);
         expect(one.existsSync(), isFalse);
+        // Only that file's gallery copy is removed.
+        expect(gallery.deleted.single.$1, ['content://media/1.jpg']);
+        expect(task(id).exported.keys, [two.path]);
         expect(task(id).filePaths, [two.path]);
         expect(task(id).fileSize, 2);
 
@@ -353,6 +359,47 @@ void main() {
         expect(storage.totalBytes, 0);
       },
     );
+
+    test(
+      'downloads exported by older versions are found by file name',
+      () async {
+        final file = File('${directory.path}/old.mp4')..writeAsStringSync('x');
+        repository = InMemoryDownloadRepository([
+          storedTask(
+            'old',
+            'Old video',
+            MediaPlatform.youtube,
+            videoFormat(720),
+            DownloadStatus.completed,
+            files: [file.path],
+          ),
+        ]);
+        container = create(const AppSettings());
+        await settle();
+
+        await queue().removeAll(['old']);
+        expect(file.existsSync(), isFalse);
+        expect(gallery.deleted.single.$1, isEmpty);
+        expect(gallery.deleted.single.$2, ['old.mp4']);
+      },
+    );
+
+    test('reports when Android keeps a gallery copy', () async {
+      final file = File('${directory.path}/a.jpg')..writeAsStringSync('x');
+      container = create(const AppSettings());
+      await settle();
+      await queue().addCompleted(
+        title: 'Photo',
+        platform: MediaPlatform.whatsapp,
+        format: photosFormat,
+        filePaths: [file.path],
+      );
+      gallery.deleteSucceeds = false;
+      final id = container.read(downloadQueueControllerProvider).single.id;
+      expect(await queue().removeAll([id]), isFalse);
+      // SaveKit's own copy is still gone.
+      expect(file.existsSync(), isFalse);
+    });
 
     test('storage reports abandoned partial files as leftovers', () async {
       container = create(const AppSettings());

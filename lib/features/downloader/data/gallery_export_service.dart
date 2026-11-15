@@ -1,5 +1,5 @@
-import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/native/youtube_dl_native_service.dart';
 
@@ -9,15 +9,7 @@ enum SavedFileKind { image, video, audio, other }
 SavedFileKind savedFileKindOf(String path) {
   final extension = p.extension(path).replaceFirst('.', '').toLowerCase();
   const images = {
-    'jpg',
-    'jpeg',
-    'png',
-    'webp',
-    'gif',
-    'heic',
-    'heif',
-    'avif',
-    'bmp',
+    'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'avif', 'bmp', //
   };
   const videos = {'mp4', 'mov', 'webm', 'mkv', 'm4v', '3gp', 'avi'};
   const audio = {'mp3', 'm4a', 'aac', 'opus', 'ogg', 'wav', 'flac'};
@@ -28,46 +20,63 @@ SavedFileKind savedFileKindOf(String path) {
 }
 
 /// Copies finished downloads into the phone's shared storage so they show up
-/// in the Gallery and music apps: photos and videos into a "SaveKit" album,
-/// audio into Music/SaveKit, anything else into Download/SaveKit.
+/// in the Gallery and music apps (Pictures/SaveKit, Movies/SaveKit,
+/// Music/SaveKit, Download/SaveKit), and removes those copies again when the
+/// download is deleted, so deleting in SaveKit frees the space everywhere.
 class GalleryExportService {
   GalleryExportService(this._native);
 
-  static const album = 'SaveKit';
-
   final YoutubeDlNativeService _native;
 
-  /// Asks for storage access where the Android version needs it (9 and below).
-  Future<bool> ensureAccess() async {
+  /// Android 9 and below need the storage permission to write shared files;
+  /// newer versions need none.
+  Future<void> _ensureLegacyAccess() async {
     try {
-      if (await Gal.hasPermission(toAlbum: true)) return true;
-      return await Gal.requestPermission(toAlbum: true);
+      final status = await Permission.storage.status;
+      if (!status.isGranted && !status.isPermanentlyDenied) {
+        await Permission.storage.request();
+      }
     } catch (_) {
-      return false;
+      // Not applicable on this Android version.
     }
   }
 
-  /// Exports [paths]. Returns true only when every file was exported.
-  Future<bool> export(List<String> paths) async {
-    if (paths.isEmpty) return false;
-    if (!await ensureAccess()) return false;
-    var allSaved = true;
+  /// Exports [paths]. Returns, for each file that was exported, where its
+  /// copy lives; keep this to delete the copy later.
+  Future<Map<String, String>> export(List<String> paths) async {
+    if (paths.isEmpty) return const {};
+    await _ensureLegacyAccess();
+    final exported = <String, String>{};
     for (final path in paths) {
       try {
-        switch (savedFileKindOf(path)) {
-          case SavedFileKind.image:
-            await Gal.putImage(path, album: album);
-          case SavedFileKind.video:
-            await Gal.putVideo(path, album: album);
-          case SavedFileKind.audio:
-            await _native.exportToMediaStore(path, audio: true);
-          case SavedFileKind.other:
-            await _native.exportToMediaStore(path, audio: false);
-        }
+        final location = await _native.exportToMediaStore(
+          path,
+          kind: savedFileKindOf(path).name,
+        );
+        if (location.isNotEmpty) exported[path] = location;
       } catch (_) {
-        allSaved = false;
+        // This file stays in the Vault only.
       }
     }
-    return allSaved;
+    return exported;
+  }
+
+  /// Deletes exported copies. [locations] are values returned by [export];
+  /// [legacyNames] are the file names of downloads exported before locations
+  /// were recorded. Returns false when Android would not remove some copy
+  /// (for example the user declined its confirmation).
+  Future<bool> deleteExported({
+    Iterable<String> locations = const [],
+    Iterable<String> legacyNames = const [],
+  }) async {
+    if (locations.isEmpty && legacyNames.isEmpty) return true;
+    try {
+      return await _native.deleteFromMediaStore(
+        locations: locations.toList(),
+        names: legacyNames.toList(),
+      );
+    } catch (_) {
+      return false;
+    }
   }
 }

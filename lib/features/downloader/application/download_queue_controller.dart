@@ -133,17 +133,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     state = [task, ...state];
     await _repository.save(task);
 
-    var saved = false;
-    try {
-      saved = await ref.read(galleryExportServiceProvider).export(filePaths);
-    } catch (_) {
-      saved = false;
-    }
-    if (!ref.mounted) return;
-    final current = _find(task.id);
-    if (saved && current != null) {
-      _replace(current.copyWith(savedToGallery: true));
-    }
+    await _exportToGallery(task);
   }
 
   /// Stops a queued, running or paused task.
@@ -277,44 +267,60 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     unawaited(_pump());
   }
 
-  /// Removes a task from the list. With [deleteFiles], SaveKit's own copies
-  /// of its files are deleted too; copies exported to the gallery are kept.
-  Future<void> remove(String id, {bool deleteFiles = true}) async {
+  /// Removes a task from the list. With [deleteFiles], its files are deleted
+  /// from the phone entirely: SaveKit's own copies and the gallery copies.
+  /// Returns false when Android kept a gallery copy.
+  Future<bool> remove(String id, {bool deleteFiles = true}) async {
     final task = _find(id);
-    if (task == null) return;
+    if (task == null) return true;
     if (task.isActive) await cancel(id);
     state = [
       for (final other in state)
         if (other.id != id) other,
     ];
     await _repository.delete(id);
-    if (deleteFiles) _deleteFiles(task.filePaths);
-    _syncService(force: true);
+    var everywhere = true;
+    if (deleteFiles) {
+      _deleteFiles(task.filePaths);
+      everywhere = await _deleteGalleryCopies(task, task.filePaths);
+    }
+    if (ref.mounted) _syncService(force: true);
+    return everywhere;
   }
 
-  /// Removes several finished downloads and their files at once.
-  Future<void> removeAll(Iterable<String> ids) async {
+  /// Removes several finished downloads and deletes their files from the
+  /// phone entirely. Returns false when Android kept a gallery copy.
+  Future<bool> removeAll(Iterable<String> ids) async {
     final targets = ids.toSet();
     final removed = [
       for (final task in state)
         if (targets.contains(task.id) && !task.isActive) task,
     ];
-    if (removed.isEmpty) return;
+    if (removed.isEmpty) return true;
     final removedIds = {for (final task in removed) task.id};
     state = [
       for (final task in state)
         if (!removedIds.contains(task.id)) task,
     ];
+    await _repository.deleteAll(removedIds);
+    var everywhere = true;
     for (final task in removed) {
       _deleteFiles(task.filePaths);
+      if (!await _deleteGalleryCopies(task, task.filePaths)) everywhere = false;
     }
-    await _repository.deleteAll(removedIds);
+    return everywhere;
   }
 
-  /// Deletes individual files from the phone. A download whose files are all
-  /// gone is removed from the list; one that keeps some is updated.
-  Future<void> deleteFiles(Set<String> paths) async {
-    if (paths.isEmpty) return;
+  /// Deletes individual files from the phone entirely, gallery copies
+  /// included. A download whose files are all gone is removed from the list;
+  /// one that keeps some is updated. Returns false when Android kept a
+  /// gallery copy.
+  Future<bool> deleteFiles(Set<String> paths) async {
+    if (paths.isEmpty) return true;
+    final affected = [
+      for (final task in state)
+        if (task.filePaths.any(paths.contains)) task,
+    ];
     final removedIds = <String>[];
     final updated = <DownloadTask>[];
     final next = <DownloadTask>[];
@@ -333,18 +339,28 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
         final changed = task.copyWith(
           filePaths: remaining,
           fileSize: _sizeOf(remaining),
+          exported: {
+            for (final entry in task.exported.entries)
+              if (!paths.contains(entry.key)) entry.key: entry.value,
+          },
         );
         updated.add(changed);
         next.add(changed);
       }
     }
-    if (!ref.mounted) return;
+    if (!ref.mounted) return true;
     state = next;
     await _repository.deleteAll(removedIds);
     for (final task in updated) {
       await _repository.save(task);
     }
     _deleteFiles(paths);
+    var everywhere = true;
+    for (final task in affected) {
+      final copies = task.filePaths.where(paths.contains);
+      if (!await _deleteGalleryCopies(task, copies)) everywhere = false;
+    }
+    return everywhere;
   }
 
   /// Removes every failed and canceled task.
@@ -516,19 +532,8 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     final succeeded = task.status == DownloadStatus.completed;
 
     if (succeeded && task.filePaths.isNotEmpty) {
-      var saved = false;
-      try {
-        saved = await ref
-            .read(galleryExportServiceProvider)
-            .export(task.filePaths);
-      } catch (_) {
-        saved = false;
-      }
+      await _exportToGallery(task);
       if (!ref.mounted) return;
-      final current = _find(task.id);
-      if (saved && current != null) {
-        _replace(current.copyWith(savedToGallery: true));
-      }
     }
 
     try {
@@ -540,6 +545,47 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     } catch (_) {
       // Notifications are best effort.
     }
+  }
+
+  // endregion
+
+  // region gallery copies
+
+  /// Copies a finished task's files to the gallery and remembers where each
+  /// copy went, so deleting the download can delete the copy too.
+  Future<void> _exportToGallery(DownloadTask task) async {
+    Map<String, String> exported;
+    try {
+      exported = await ref
+          .read(galleryExportServiceProvider)
+          .export(task.filePaths);
+    } catch (_) {
+      exported = const {};
+    }
+    if (!ref.mounted || exported.isEmpty) return;
+    final current = _find(task.id);
+    if (current != null) {
+      _replace(current.copyWith(savedToGallery: true, exported: exported));
+    }
+  }
+
+  /// Deletes the gallery copies of [paths] belonging to [task]. Returns
+  /// false when Android kept one (the user declined its confirmation).
+  Future<bool> _deleteGalleryCopies(DownloadTask task, Iterable<String> paths) {
+    final locations = <String>[];
+    final legacyNames = <String>[];
+    for (final path in paths) {
+      final location = task.exported[path];
+      if (location != null) {
+        locations.add(location);
+      } else if (task.savedToGallery) {
+        // Exported before copies were tracked: found by file name instead.
+        legacyNames.add(path.split('/').last);
+      }
+    }
+    return ref
+        .read(galleryExportServiceProvider)
+        .deleteExported(locations: locations, legacyNames: legacyNames);
   }
 
   // endregion

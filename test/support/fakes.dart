@@ -202,8 +202,25 @@ class UiFakeDirect implements DirectDownloadService {
 }
 
 class UiFakeGallery implements GalleryExportService {
+  /// Gallery copies deleted, as (locations, legacy names).
+  final deleted = <(List<String>, List<String>)>[];
+
+  /// What deleteExported answers; false simulates Android keeping a copy.
+  bool deleteSucceeds = true;
+
   @override
-  Future<bool> export(List<String> paths) async => true;
+  Future<Map<String, String>> export(List<String> paths) async => {
+    for (final path in paths) path: 'content://media/${path.split('/').last}',
+  };
+
+  @override
+  Future<bool> deleteExported({
+    Iterable<String> locations = const [],
+    Iterable<String> legacyNames = const [],
+  }) async {
+    deleted.add((locations.toList(), legacyNames.toList()));
+    return deleteSucceeds;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -378,6 +395,7 @@ List<Override> uiOverrides({
   UiFakeVaultLock? vaultLock,
   UiFakeDeviceFiles? deviceFiles,
   StorageSnapshot? storage,
+  UiFakeGallery? gallery,
 }) => [
   vaultLockServiceProvider.overrideWithValue(vaultLock ?? UiFakeVaultLock()),
   deviceFilesServiceProvider.overrideWithValue(
@@ -394,7 +412,7 @@ List<Override> uiOverrides({
   ),
   nativeServiceProvider.overrideWithValue(native),
   directDownloadServiceProvider.overrideWithValue(UiFakeDirect()),
-  galleryExportServiceProvider.overrideWithValue(UiFakeGallery()),
+  galleryExportServiceProvider.overrideWithValue(gallery ?? UiFakeGallery()),
   cookieExportServiceProvider.overrideWithValue(UiFakeCookies({...signedIn})),
   mediaExtractorProvider.overrideWithValue(
     extractor ?? UiFakeExtractor(extraction ?? sampleInfo()),

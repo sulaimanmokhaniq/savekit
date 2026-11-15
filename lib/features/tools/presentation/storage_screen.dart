@@ -51,7 +51,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               : 'Delete ${paths.length} files?',
         ),
         content: Text(
-          'This frees ${formatBytes(bytes)}. Copies already in your gallery stay.',
+          'This deletes ${paths.length == 1 ? 'it' : 'them'} everywhere on '
+          'this phone: from SaveKit and from your gallery. It frees at least '
+          '${formatBytes(bytes)} and cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -67,8 +69,21 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       ),
     );
     if (confirmed != true) return;
-    await ref.read(downloadQueueControllerProvider.notifier).deleteFiles(paths);
-    if (mounted) setState(() => _selected.removeAll(paths));
+    final everywhere = await ref
+        .read(downloadQueueControllerProvider.notifier)
+        .deleteFiles(paths);
+    if (!mounted) return;
+    setState(() => _selected.removeAll(paths));
+    if (!everywhere) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Removed from SaveKit, but a gallery copy could not be deleted. '
+            'Delete it from your gallery app.',
+          ),
+        ),
+      );
+    }
   }
 
   @override

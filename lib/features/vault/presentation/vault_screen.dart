@@ -72,7 +72,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   /// Asks, then deletes [tasks]. Returns whether they were deleted.
   Future<bool> _delete(List<DownloadTask> tasks) async {
     if (tasks.isEmpty) return false;
-    final exported = tasks.any((task) => task.savedToGallery);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -81,10 +80,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               ? 'Delete this download?'
               : 'Delete ${tasks.length} downloads?',
         ),
-        content: Text(
-          exported
-              ? 'Removed from SaveKit. Copies in your gallery stay.'
-              : 'The files are removed from this phone.',
+        content: const Text(
+          'This deletes it everywhere on this phone: from SaveKit and from '
+          'your gallery. It cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -100,9 +98,19 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       ),
     );
     if (confirmed != true) return false;
-    await ref
+    final everywhere = await ref
         .read(downloadQueueControllerProvider.notifier)
         .removeAll(tasks.map((task) => task.id));
+    if (!everywhere && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Removed from SaveKit, but a gallery copy could not be deleted. '
+            'Delete it from your gallery app.',
+          ),
+        ),
+      );
+    }
     if (mounted) setState(() => _selected.removeAll(tasks.map((t) => t.id)));
     return true;
   }

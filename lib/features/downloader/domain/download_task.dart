@@ -26,6 +26,7 @@ class DownloadTask {
     this.error,
     this.completedAt,
     this.savedToGallery = false,
+    this.exported = const {},
   });
 
   /// Creates a queued task for [format] of the media described by [info].
@@ -74,6 +75,11 @@ class DownloadTask {
   /// Whether the finished files were exported to the public gallery.
   final bool savedToGallery;
 
+  /// For each exported file, where its gallery copy lives (file path ->
+  /// address), so the copy can be deleted with the download. Empty for
+  /// downloads exported by older versions, whose copies are found by name.
+  final Map<String, String> exported;
+
   String? get filePath => filePaths.isEmpty ? null : filePaths.first;
   bool get isActive => status.isActive;
   bool get canResume => status == DownloadStatus.paused;
@@ -107,6 +113,7 @@ class DownloadTask {
     bool clearError = false,
     DateTime? completedAt,
     bool? savedToGallery,
+    Map<String, String>? exported,
   }) {
     return DownloadTask(
       id: id,
@@ -127,6 +134,7 @@ class DownloadTask {
       error: clearError ? null : (error ?? this.error),
       completedAt: completedAt ?? this.completedAt,
       savedToGallery: savedToGallery ?? this.savedToGallery,
+      exported: exported ?? this.exported,
     );
   }
 
@@ -149,6 +157,7 @@ class DownloadTask {
     'error': error,
     'completedAt': completedAt?.millisecondsSinceEpoch,
     'savedToGallery': savedToGallery,
+    'exported': exported,
   };
 
   factory DownloadTask.fromMap(Map<Object?, Object?> source) {
@@ -180,6 +189,11 @@ class DownloadTask {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(completedAt),
       savedToGallery: map['savedToGallery'] as bool? ?? false,
+      exported: {
+        for (final entry in (map['exported'] as Map? ?? const {}).entries)
+          if (entry.key is String && entry.value is String)
+            entry.key as String: entry.value as String,
+      },
     );
   }
 }

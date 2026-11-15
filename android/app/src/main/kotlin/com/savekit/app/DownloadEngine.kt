@@ -690,14 +690,10 @@ object DownloadEngine {
 
     // region shared storage
 
-    /** Copies a finished audio or document file into the device's shared storage. */
-    fun exportToMediaStore(path: String, audio: Boolean, result: MethodChannel.Result) {
-        executor.execute {
-            try {
-                succeed(result, MediaStoreExporter.export(appContext, path, audio))
-            } catch (e: Throwable) {
-                fail(result, ERROR_EXPORT, e)
-            }
+    /** Copies a finished file into the device's shared storage; answers with its address. */
+    fun exportToMediaStore(path: String, kind: String, result: MethodChannel.Result) {
+        runInBackground(result, ERROR_EXPORT) {
+            MediaStoreExporter.export(appContext, path, kind)
         }
     }
 

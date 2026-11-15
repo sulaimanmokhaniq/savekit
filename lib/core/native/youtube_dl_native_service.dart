@@ -236,13 +236,31 @@ class YoutubeDlNativeService {
     }),
   );
 
-  /// Copies an audio file to Music/SaveKit, or any other file to
-  /// Download/SaveKit, in the device's shared storage.
-  Future<void> exportToMediaStore(String path, {required bool audio}) => _guard(
-    () => _methods.invokeMethod<void>('exportToMediaStore', {
-      'path': path,
-      'audio': audio,
-    }),
+  /// Copies a file into shared storage under a SaveKit folder ([kind] is
+  /// "image", "video", "audio" or "other") and returns where the copy lives.
+  Future<String> exportToMediaStore(String path, {required String kind}) =>
+      _guard(
+        () async =>
+            await _methods.invokeMethod<String>('exportToMediaStore', {
+              'path': path,
+              'kind': kind,
+            }) ??
+            '',
+      );
+
+  /// Removes exported copies from shared storage. Returns true when every
+  /// copy is gone. Android may show its own confirmation for copies made by
+  /// an earlier installation of the app.
+  Future<bool> deleteFromMediaStore({
+    required List<String> locations,
+    required List<String> names,
+  }) => _guard(
+    () async =>
+        await _methods.invokeMethod<bool>('deleteFromMediaStore', {
+          'locations': locations,
+          'names': names,
+        }) ??
+        false,
   );
 
   Future<Map<String, dynamic>> _invokeMap(
