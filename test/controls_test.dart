@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:savekit/core/engine/engine_controller.dart';
 import 'package:savekit/core/platform/media_platform.dart';
+import 'package:savekit/core/providers.dart';
 import 'package:savekit/core/settings/app_settings.dart';
 import 'package:savekit/core/storage/app_paths.dart';
 import 'package:savekit/core/theme/app_palette.dart';
@@ -163,6 +165,59 @@ void main() {
       expect(ids, hasLength(AppPalette.all.length));
       expect(AppPalette.byId('nope'), AppPalette.fallback);
       expect(AppPalette.byId('tide').name, 'Tide');
+    });
+  });
+
+  group('automatic engine updates', () {
+    final now = DateTime(2026, 11, 15, 9);
+
+    Future<(UiFakeNative, ProviderContainer)> start(
+      AppSettings settings,
+    ) async {
+      final native = UiFakeNative();
+      final container = ProviderContainer(
+        overrides: [
+          ...uiOverrides(
+            native: native,
+            settings: settings,
+            allowAutoUpdate: true,
+          ),
+          clockProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(engineControllerProvider, (_, _) {});
+      await container.read(engineControllerProvider.future);
+      await settle();
+      return (native, container);
+    }
+
+    test('run when the extractors were never updated', () async {
+      final (native, container) = await start(const AppSettings());
+      expect(native.updates, 1);
+      expect(container.read(settingsControllerProvider).lastEngineUpdate, now);
+      // It installed something, so it says so.
+      expect(
+        container.read(engineControllerProvider).value!.lastUpdateMessage,
+        'Updated automatically: yt-dlp 2026.11.14.',
+      );
+    });
+
+    test('run again after a week, but not before', () async {
+      final (fresh, _) = await start(
+        AppSettings(lastEngineUpdate: now.subtract(const Duration(days: 6))),
+      );
+      expect(fresh.updates, 0);
+
+      final (stale, _) = await start(
+        AppSettings(lastEngineUpdate: now.subtract(const Duration(days: 8))),
+      );
+      expect(stale.updates, 1);
+    });
+
+    test('can be turned off', () async {
+      final (native, _) = await start(const AppSettings(autoUpdate: false));
+      expect(native.updates, 0);
     });
   });
 

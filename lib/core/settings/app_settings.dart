@@ -60,6 +60,8 @@ class AppSettings {
     this.lockVault = false,
     this.vaultSort = VaultSort.newest,
     this.vaultGrid = true,
+    this.autoUpdate = true,
+    this.lastEngineUpdate,
   });
 
   /// Id of the selected [AppPalette].
@@ -83,6 +85,12 @@ class AppSettings {
   final VaultSort vaultSort;
   final bool vaultGrid;
 
+  /// Refresh the extractors in the background when they are over a week old.
+  final bool autoUpdate;
+
+  /// When the extractors were last checked for updates; null if never.
+  final DateTime? lastEngineUpdate;
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -96,6 +104,8 @@ class AppSettings {
     bool? lockVault,
     VaultSort? vaultSort,
     bool? vaultGrid,
+    bool? autoUpdate,
+    DateTime? lastEngineUpdate,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     matchIcon: matchIcon ?? this.matchIcon,
@@ -108,6 +118,8 @@ class AppSettings {
     lockVault: lockVault ?? this.lockVault,
     vaultSort: vaultSort ?? this.vaultSort,
     vaultGrid: vaultGrid ?? this.vaultGrid,
+    autoUpdate: autoUpdate ?? this.autoUpdate,
+    lastEngineUpdate: lastEngineUpdate ?? this.lastEngineUpdate,
   );
 
   Map<String, dynamic> toMap() => {
@@ -119,6 +131,8 @@ class AppSettings {
     'lockVault': lockVault,
     'vaultSort': vaultSort.id,
     'vaultGrid': vaultGrid,
+    'autoUpdate': autoUpdate,
+    'lastEngineUpdate': lastEngineUpdate?.millisecondsSinceEpoch,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -133,6 +147,12 @@ class AppSettings {
     lockVault: map['lockVault'] as bool? ?? false,
     vaultSort: VaultSort.fromId(map['vaultSort'] as String?),
     vaultGrid: map['vaultGrid'] as bool? ?? true,
+    autoUpdate: map['autoUpdate'] as bool? ?? true,
+    lastEngineUpdate: map['lastEngineUpdate'] is num
+        ? DateTime.fromMillisecondsSinceEpoch(
+            (map['lastEngineUpdate'] as num).toInt(),
+          )
+        : null,
   );
 }
 
@@ -236,6 +256,9 @@ class SettingsController extends Notifier<AppSettings> {
   void setLockVault(bool value) => _set(state.copyWith(lockVault: value));
   void setVaultSort(VaultSort value) => _set(state.copyWith(vaultSort: value));
   void setVaultGrid(bool value) => _set(state.copyWith(vaultGrid: value));
+  void setAutoUpdate(bool value) => _set(state.copyWith(autoUpdate: value));
+  void markEngineUpdated(DateTime when) =>
+      _set(state.copyWith(lastEngineUpdate: when));
 }
 
 final settingsControllerProvider =

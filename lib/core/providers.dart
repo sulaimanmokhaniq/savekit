@@ -71,3 +71,6 @@ final notificationPermissionProvider =
         }
       },
     );
+
+/// The current time; a seam for tests.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);

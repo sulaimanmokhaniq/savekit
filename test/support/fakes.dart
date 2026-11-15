@@ -41,8 +41,16 @@ class UiFakeNative implements YoutubeDlNativeService {
   Future<EngineStatus> initEngine() async =>
       const EngineStatus(version: '2026.11.10', galleryVersion: '1.32.20');
 
+  /// Times updateEngine was called.
+  int updates = 0;
+
   @override
-  Future<EngineUpdateResult> updateEngine() async => const EngineUpdateResult(
+  Future<EngineUpdateResult> updateEngine() async {
+    updates++;
+    return _updateResult;
+  }
+
+  static const _updateResult = EngineUpdateResult(
     updated: true,
     version: '2026.11.14',
     galleryUpdated: false,
@@ -400,6 +408,10 @@ List<Override> uiOverrides({
   StorageSnapshot? storage,
   UiFakeGallery? gallery,
   List<String>? iconChanges,
+
+  /// Tests of the app's screens start with automatic updates off, so the
+  /// engine versions they show are the ones the fake starts with.
+  bool allowAutoUpdate = false,
 }) => [
   launcherIconProvider.overrideWithValue(
     (themeId) async => iconChanges?.add(themeId),
@@ -412,7 +424,9 @@ List<Override> uiOverrides({
   if (storage != null)
     storageSnapshotProvider.overrideWith((ref) async => storage),
   settingsRepositoryProvider.overrideWithValue(
-    InMemorySettingsRepository(settings),
+    InMemorySettingsRepository(
+      allowAutoUpdate ? settings : settings.copyWith(autoUpdate: false),
+    ),
   ),
   connectivityServiceProvider.overrideWithValue(
     connectivity ?? FakeConnectivity(),

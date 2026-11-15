@@ -193,6 +193,25 @@ class SettingsScreen extends ConsumerWidget {
             },
             onRetry: () => ref.invalidate(engineControllerProvider),
           ),
+          const SizedBox(height: 10),
+          Card(
+            child: SwitchListTile(
+              value: settings.autoUpdate,
+              onChanged: settingsController.setAutoUpdate,
+              secondary: Icon(
+                Icons.autorenew_rounded,
+                color: AppColors.textMuted,
+              ),
+              title: const Text('Update automatically'),
+              subtitle: Text(
+                settings.lastEngineUpdate == null
+                    ? 'Checks once a week when you open the app.'
+                    : 'Checks once a week. Last checked '
+                          '${_daysAgo(settings.lastEngineUpdate!)}.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+            ),
+          ),
           const SizedBox(height: 18),
           const _SectionTitle('STORAGE'),
           Card(
@@ -460,6 +479,13 @@ class _VersionRow extends StatelessWidget {
       ],
     );
   }
+}
+
+String _daysAgo(DateTime when) {
+  final days = DateTime.now().difference(when).inDays;
+  if (days <= 0) return 'today';
+  if (days == 1) return 'yesterday';
+  return '$days days ago';
 }
 
 /// The selectable colour themes, each previewed with its own colours.

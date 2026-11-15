@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../native/youtube_dl_native_service.dart';
+import '../network/connectivity_service.dart';
 import '../providers.dart';
+import '../settings/app_settings.dart';
 
 /// State of the on-device extractors.
 class EngineState {
@@ -45,15 +47,39 @@ class EngineController extends AsyncNotifier<EngineState> {
   @override
   Future<EngineState> build() async {
     final status = await ref.read(nativeServiceProvider).initEngine();
+    // Sites change often; keep the extractors fresh without being asked.
+    Future<void>.microtask(_autoUpdateIfDue);
     return EngineState(
       version: status.version,
       galleryVersion: status.galleryVersion,
     );
   }
 
+  /// How old the extractors may get before they are refreshed automatically.
+  static const autoUpdateInterval = Duration(days: 7);
+
+  Future<void> _autoUpdateIfDue() async {
+    if (!ref.mounted) return;
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.autoUpdate) return;
+    final last = settings.lastEngineUpdate;
+    final now = ref.read(clockProvider)();
+    if (last != null && now.difference(last) < autoUpdateInterval) return;
+    // Respect "Wi-Fi only": the update is a few megabytes.
+    if (settings.wifiOnly &&
+        !await ref.read(connectivityServiceProvider).isOnWifi()) {
+      return;
+    }
+    if (!ref.mounted) return;
+    await updateEngine(automatic: true);
+  }
+
   /// Updates everything that can be updated without a new APK. Returns the
   /// message describing what happened.
-  Future<String> updateEngine() async {
+  ///
+  /// An [automatic] update is quiet: it leaves no message behind unless it
+  /// actually installed something.
+  Future<String> updateEngine({bool automatic = false}) async {
     final current = state.value;
     if (current == null) return 'The engine is not ready yet.';
     if (current.isUpdating) return 'An update is already running.';
@@ -92,12 +118,23 @@ class EngineController extends AsyncNotifier<EngineState> {
       message = 'Updated ${updated.join(', ')}.';
     }
 
+    if (!ref.mounted) return message;
+    if (engineError == null) {
+      ref
+          .read(settingsControllerProvider.notifier)
+          .markEngineUpdated(ref.read(clockProvider)());
+    }
+    final quiet = automatic && (engineError != null || updated.isEmpty);
     state = AsyncData(
       EngineState(
         version: result?.version ?? current.version,
         galleryVersion: result?.galleryVersion ?? current.galleryVersion,
-        lastUpdateMessage: message,
-        lastUpdateFailed: engineError != null,
+        lastUpdateMessage: quiet
+            ? current.lastUpdateMessage
+            : automatic
+            ? 'Updated automatically: ${updated.join(', ')}.'
+            : message,
+        lastUpdateFailed: !quiet && engineError != null,
       ),
     );
     return message;
