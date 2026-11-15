@@ -103,6 +103,53 @@ class PlaylistInfo {
   );
 }
 
+/// One photo or video of an account, as listed before downloading.
+class AccountItem {
+  const AccountItem({
+    required this.url,
+    this.title,
+    this.thumbnail,
+    this.isVideo = false,
+    this.needsExtractor = false,
+  });
+
+  /// A direct file address, or, when [needsExtractor], the post's page.
+  final String url;
+  final String? title;
+  final String? thumbnail;
+  final bool isVideo;
+
+  /// The address is a page yt-dlp still has to resolve, not a file.
+  final bool needsExtractor;
+
+  factory AccountItem.fromMap(Map<Object?, Object?> map) => AccountItem(
+    url: map['url'] as String? ?? '',
+    title: map['title'] as String?,
+    thumbnail: map['thumbnail'] as String?,
+    isVideo: map['isVideo'] as bool? ?? false,
+    needsExtractor: map['needsExtractor'] as bool? ?? false,
+  );
+}
+
+/// One page of an account's media.
+class AccountPage {
+  const AccountPage({
+    required this.items,
+    required this.hasMore,
+    this.title,
+    this.platform,
+  });
+
+  final List<AccountItem> items;
+
+  /// Whether asking for the next page may return more.
+  final bool hasMore;
+  final String? title;
+
+  /// Platform identifier as the engine reports it.
+  final String? platform;
+}
+
 /// Dart side of the Kotlin bridge: every on-device extraction and download
 /// goes through here.
 class YoutubeDlNativeService {
@@ -175,6 +222,31 @@ class YoutubeDlNativeService {
       'cookiesFilePath': cookiesFilePath,
     });
     return PlaylistInfo.fromMap(result);
+  }
+
+  /// Lists an account's media, [count] items from [start] (1-based).
+  Future<AccountPage> getAccountMedia(
+    String url, {
+    String? cookiesFilePath,
+    int start = 1,
+    int count = 100,
+  }) async {
+    final result = await _invokeMap('getAccountMedia', {
+      'url': url,
+      'cookiesFilePath': cookiesFilePath,
+      'start': start,
+      'count': count,
+    });
+    return AccountPage(
+      title: (result['title'] as String?) ?? (result['uploader'] as String?),
+      platform: result['platform'] as String?,
+      hasMore: result['hasMore'] as bool? ?? false,
+      items: [
+        for (final item
+            in (result['items'] as List? ?? const []).whereType<Map>())
+          if (item['url'] is String) AccountItem.fromMap(item),
+      ],
+    );
   }
 
   /// Starts a native download. Returns once the task is accepted; progress and

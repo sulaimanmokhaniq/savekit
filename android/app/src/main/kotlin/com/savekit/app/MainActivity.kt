@@ -19,6 +19,7 @@ import java.io.File
  *  - updateEngine()
  *  - getMediaInfo(url, cookiesFilePath?)
  *  - getPlaylistInfo(url, cookiesFilePath?)
+ *  - getAccountMedia(url, cookiesFilePath?, start, count)
  *  - startDownload(taskId, url, formatSelection, outputDir, cookiesFilePath?, extractAudio,
  *                  formatSort?, audioFormat?, engine?, itemCount?)
  *  - cancelDownload(taskId)
@@ -206,6 +207,21 @@ class MainActivity : FlutterFragmentActivity() {
                 DownloadEngine.getPlaylistInfo(
                     url = url,
                     cookiesFilePath = call.argument<String>("cookiesFilePath"),
+                    result = result,
+                )
+            }
+
+            "getAccountMedia" -> {
+                val url = call.argument<String>("url")?.trim()
+                if (url.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "getAccountMedia requires a non-empty 'url'.", null)
+                    return
+                }
+                DownloadEngine.getAccountMedia(
+                    url = url,
+                    cookiesFilePath = call.argument<String>("cookiesFilePath"),
+                    start = (call.argument<Number>("start")?.toInt() ?: 1).coerceAtLeast(1),
+                    count = (call.argument<Number>("count")?.toInt() ?: 100).coerceIn(1, 300),
                     result = result,
                 )
             }

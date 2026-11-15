@@ -9,6 +9,7 @@ import '../features/downloader/application/download_queue_controller.dart';
 import '../features/downloader/presentation/queue_screen.dart';
 import '../features/extractor/application/batch_controller.dart';
 import '../features/extractor/application/incoming_link_controller.dart';
+import '../features/extractor/presentation/account_screen.dart';
 import '../features/extractor/presentation/batch_sheet.dart';
 import '../features/extractor/presentation/format_picker_sheet.dart';
 import '../features/extractor/presentation/home_screen.dart';
@@ -79,6 +80,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       await _openBatch(urls: urls);
     } else if (urls.length == 1 && isPlaylistUrl(urls.single)) {
       await _openBatch(playlistUrl: urls.single);
+    } else if (urls.length == 1 && isAccountUrl(urls.single)) {
+      await _openAccount(urls.single);
     } else {
       await _openPicker(urls.isEmpty ? text.trim() : urls.single);
     }
@@ -94,6 +97,29 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     _pickerOpen = false;
   }
 
+  /// Shows an account's media to choose from.
+  Future<void> _openAccount(String url) async {
+    if (_pickerOpen) return;
+    _pickerOpen = true;
+    final count = await Navigator.of(context)
+        .push<int>(MaterialPageRoute(builder: (_) => AccountScreen(url: url)));
+    _pickerOpen = false;
+    if (count == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            count == 1 ? 'Added to the queue.' : '$count items on their way.',
+          ),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () => _select(_queue),
+          ),
+        ),
+      );
+  }
+
   void _handleShared(String url) {
     ref.read(incomingLinkControllerProvider.notifier).consumeShared();
     // A share can arrive while another route is on top; bring Home forward.
@@ -102,6 +128,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     if (isPlaylistUrl(url)) {
       _openBatch(playlistUrl: url);
+      return;
+    }
+    if (isAccountUrl(url)) {
+      _openAccount(url);
       return;
     }
     // One-tap download: queue at the saved quality without asking. The Home

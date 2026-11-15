@@ -327,6 +327,103 @@ object DownloadEngine {
         }
     }
 
+    /**
+     * Lists the media of an account page (a channel, a profile, a user's timeline), a page
+     * at a time: items [start] to [start] + [count] - 1. Photo-first platforms go through
+     * gallery-dl, which returns direct file addresses; everything else, and anything
+     * gallery-dl cannot read, through yt-dlp, which returns video page addresses.
+     */
+    fun getAccountMedia(
+        url: String,
+        cookiesFilePath: String?,
+        start: Int,
+        count: Int,
+        result: MethodChannel.Result,
+    ) {
+        executor.execute {
+            var cookies: File? = null
+            try {
+                ensureInitialized()
+                cookies = snapshotCookies(cookiesFilePath, "account-${System.nanoTime()}")
+                val end = start + count - 1
+                val isYoutube = url.contains("youtube.com/") || url.contains("youtu.be/")
+
+                var galleryError: Throwable? = null
+                if (!isYoutube) {
+                    try {
+                        val info = GalleryEngine.listAccount(appContext, url, cookies, start, end)
+                        if (info != null) {
+                            succeed(
+                                result,
+                                mapOf(
+                                    "url" to url,
+                                    "title" to info.uploader,
+                                    "uploader" to info.uploader,
+                                    "platform" to info.platform,
+                                    "items" to info.items.map { it.toMap() },
+                                    "hasMore" to (info.items.size >= count),
+                                ),
+                            )
+                            return@execute
+                        }
+                    } catch (e: Throwable) {
+                        galleryError = e
+                    }
+                }
+
+                try {
+                    val request = YoutubeDLRequest(url)
+                        .addOption("--flat-playlist")
+                        .addOption("--dump-single-json")
+                        .addOption("--no-warnings")
+                        .addOption("--playlist-start", start)
+                        .addOption("--playlist-end", end)
+                    if (cookies != null) request.addOption("--cookies", cookies.absolutePath)
+                    val response = YoutubeDL.getInstance().execute(request, null, null)
+                    val json = response.out.trim()
+                    if (json.isEmpty()) {
+                        throw YoutubeDLException(
+                            response.err.ifBlank { "No media was found on this account." },
+                        )
+                    }
+                    val playlist = MediaInfoParser.parsePlaylist(json, url)
+                    @Suppress("UNCHECKED_CAST")
+                    val entries = playlist["entries"] as List<Map<String, Any?>>
+                    succeed(
+                        result,
+                        mapOf(
+                            "url" to url,
+                            "title" to playlist["title"],
+                            "uploader" to playlist["uploader"],
+                            "platform" to playlist["platform"],
+                            "items" to entries.map { entry ->
+                                mapOf(
+                                    "url" to entry["url"],
+                                    "extension" to "",
+                                    "width" to null,
+                                    "height" to null,
+                                    "isVideo" to true,
+                                    "thumbnail" to entry["thumbnail"],
+                                    "title" to entry["title"],
+                                    "needsExtractor" to true,
+                                )
+                            },
+                            "hasMore" to (entries.size >= count),
+                        ),
+                    )
+                } catch (e: Throwable) {
+                    // gallery-dl's reason (often "login required") is the more useful one
+                    // for the platforms it handles.
+                    throw galleryError ?: e
+                }
+            } catch (e: Throwable) {
+                fail(result, ERROR_EXTRACT, e)
+            } finally {
+                cookies?.delete()
+            }
+        }
+    }
+
     private fun extractVideoInfo(url: String, cookies: File?): Map<String, Any?> {
         val request = YoutubeDLRequest(url)
             .addOption("--dump-single-json")

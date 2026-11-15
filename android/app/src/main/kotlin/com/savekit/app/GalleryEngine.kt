@@ -30,6 +30,13 @@ object GalleryEngine {
         val height: Int?,
         val isVideo: Boolean,
         val thumbnail: String?,
+        /** Caption or title of the post the file belongs to, when known. */
+        val title: String? = null,
+        /**
+         * True when [url] is a page address that still has to be resolved by yt-dlp
+         * (a stream gallery-dl does not fetch itself), not a direct file address.
+         */
+        val needsExtractor: Boolean = false,
     ) {
         fun toMap(): Map<String, Any?> = mapOf(
             "url" to url,
@@ -38,6 +45,8 @@ object GalleryEngine {
             "height" to height,
             "isVideo" to isVideo,
             "thumbnail" to thumbnail,
+            "title" to title,
+            "needsExtractor" to needsExtractor,
         )
     }
 
@@ -329,6 +338,86 @@ object GalleryEngine {
         "twitter" -> "x"
         "" -> "generic"
         else -> category.lowercase()
+    }
+
+    /**
+     * Lists the media of an account or timeline page, items [start]..[end] (1-based,
+     * inclusive), without downloading. Unlike [getInfo] it follows the page through to its
+     * posts and keeps the videos that yt-dlp has to resolve. Returns null when gallery-dl
+     * has no extractor for the address.
+     */
+    fun listAccount(context: Context, url: String, cookies: File?, start: Int, end: Int): Info? {
+        ensureReady(context)
+        val args = ArrayList(BASE_ARGS)
+        args.addAll(listOf("--resolve-json", "--range", "$start-$end"))
+        if (cookies != null) args.addAll(listOf("--cookies", cookies.absolutePath))
+        args.add(url)
+
+        val result = run(context, args, null, null)
+        val messages = try {
+            JSONArray(result.out.trim().ifEmpty { "[]" })
+        } catch (e: Exception) {
+            throw GalleryException(errorFrom(result.err) ?: "Unreadable photo extractor output.")
+        }
+
+        var directory: JSONObject? = null
+        var reportedError: String? = null
+        val items = ArrayList<Item>()
+        for (i in 0 until messages.length()) {
+            val message = messages.optJSONArray(i) ?: continue
+            when (message.optInt(0, 0)) {
+                MESSAGE_DIRECTORY -> if (directory == null) directory = message.optJSONObject(1)
+                MESSAGE_URL -> {
+                    if (items.size >= MAX_ITEMS) continue
+                    val raw = message.optString(1)
+                    val delegated = raw.startsWith("ytdl:")
+                    val itemUrl = if (delegated) raw.removePrefix("ytdl:") else raw
+                    if (!itemUrl.startsWith("http")) continue
+                    val meta = message.optJSONObject(2) ?: JSONObject()
+                    val extension = meta.string("extension")?.lowercase().orEmpty()
+                    val isVideo = delegated || extension in VIDEO_EXTENSIONS
+                    items.add(
+                        Item(
+                            url = itemUrl,
+                            extension = extension,
+                            width = meta.int("width"),
+                            height = meta.int("height"),
+                            isVideo = isVideo,
+                            thumbnail = if (isVideo) {
+                                meta.string("display_url")
+                                    ?: meta.string("thumbnail")
+                                    ?: meta.string("preview")
+                                    ?: meta.string("cover")
+                            } else {
+                                itemUrl
+                            },
+                            title = titleOf(meta),
+                            needsExtractor = delegated,
+                        ),
+                    )
+                }
+                MESSAGE_ERROR -> {
+                    val error = message.optJSONObject(1)
+                    reportedError = error?.string("message") ?: error?.string("error")
+                }
+            }
+        }
+
+        if (items.isEmpty()) {
+            val error = reportedError ?: errorFrom(result.err)
+            if (error == null || error.contains("Unsupported URL", ignoreCase = true)) return null
+            // Past the last post: an empty page, not a failure.
+            if (start > 1) return Info(null, null, null, "generic", emptyList())
+            throw GalleryException(error)
+        }
+        val meta = directory ?: JSONObject()
+        return Info(
+            id = null,
+            title = null,
+            uploader = uploaderOf(meta),
+            platform = platformOf(meta.string("category").orEmpty()),
+            items = items,
+        )
     }
 
     // endregion

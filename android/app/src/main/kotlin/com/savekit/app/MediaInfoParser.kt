@@ -114,6 +114,7 @@ object MediaInfoParser {
                         "url" to url,
                         "title" to (entry.optStringOrNull("title") ?: "Untitled"),
                         "duration" to entry.optDoubleOrNull("duration")?.toInt(),
+                        "thumbnail" to thumbnailOf(entry),
                     ),
                 )
             }
@@ -122,6 +123,7 @@ object MediaInfoParser {
             "url" to requestedUrl,
             "title" to (root.optStringOrNull("title") ?: "Playlist"),
             "uploader" to (root.optStringOrNull("uploader") ?: root.optStringOrNull("channel")),
+            "platform" to platformOf(root, root),
             "entries" to items,
         )
     }

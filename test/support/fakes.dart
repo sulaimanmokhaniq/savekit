@@ -67,6 +67,37 @@ class UiFakeNative implements YoutubeDlNativeService {
     String? cookiesFilePath,
   }) async => started.add(taskId);
 
+  /// Pages asked for from an account, as (url, start).
+  final accountRequests = <(String, int)>[];
+
+  @override
+  Future<AccountPage> getAccountMedia(
+    String url, {
+    String? cookiesFilePath,
+    int start = 1,
+    int count = 100,
+  }) async {
+    accountRequests.add((url, start));
+    // Two pages: photos and direct videos first, then videos that still
+    // need looking up.
+    return AccountPage(
+      title: 'harbour.studio',
+      platform: 'x',
+      hasMore: start == 1,
+      items: [
+        for (var i = start; i < start + 6; i++)
+          AccountItem(
+            url: start == 1
+                ? 'https://cdn.example/$i.${i.isEven ? 'mp4' : 'jpg'}'
+                : 'https://x.com/harbour/status/$i',
+            title: 'Post $i',
+            isVideo: start != 1 || i.isEven,
+            needsExtractor: start != 1,
+          ),
+      ],
+    );
+  }
+
   @override
   Future<PlaylistInfo> getPlaylistInfo(
     String url, {
@@ -206,6 +237,18 @@ class UiFakeRulesStore implements WebExtractionRulesStore {
 }
 
 class UiFakeDirect implements DirectDownloadService {
+  /// Direct downloads started, as task id -> addresses.
+  final started = <String, List<String>>{};
+
+  @override
+  void start({
+    required String taskId,
+    required List<String> urls,
+    required String outputDir,
+    String? referer,
+    String namePrefix = 'savekit',
+  }) => started[taskId] = urls;
+
   @override
   Stream<DownloadProgress> get progressStream => const Stream.empty();
 
@@ -427,6 +470,7 @@ List<Override> uiOverrides({
   StorageSnapshot? storage,
   UiFakeGallery? gallery,
   List<String>? iconChanges,
+  UiFakeDirect? direct,
 
   /// Tests of the app's screens start with automatic updates off, so the
   /// engine versions they show are the ones the fake starts with.
@@ -451,7 +495,7 @@ List<Override> uiOverrides({
     connectivity ?? FakeConnectivity(),
   ),
   nativeServiceProvider.overrideWithValue(native),
-  directDownloadServiceProvider.overrideWithValue(UiFakeDirect()),
+  directDownloadServiceProvider.overrideWithValue(direct ?? UiFakeDirect()),
   galleryExportServiceProvider.overrideWithValue(gallery ?? UiFakeGallery()),
   cookieExportServiceProvider.overrideWithValue(UiFakeCookies({...signedIn})),
   mediaExtractorProvider.overrideWithValue(

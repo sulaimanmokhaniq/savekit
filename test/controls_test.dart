@@ -64,6 +64,44 @@ void main() {
       expect(extractAllUrls('nothing'), isEmpty);
     });
 
+    test('recognises account pages but not single posts', () {
+      const accounts = [
+        'https://www.youtube.com/@harbour',
+        'https://www.youtube.com/@harbour/videos',
+        'https://www.youtube.com/channel/UC123',
+        'https://x.com/harbour',
+        'https://twitter.com/harbour/media',
+        'https://www.instagram.com/harbour/',
+        'https://www.tiktok.com/@harbour',
+        'https://www.snapchat.com/add/harbour',
+      ];
+      const posts = [
+        'https://www.youtube.com/watch?v=abc',
+        'https://youtu.be/abc',
+        'https://x.com/harbour/status/1',
+        'https://x.com/home',
+        'https://www.instagram.com/p/abc/',
+        'https://www.instagram.com/reel/abc/',
+        'https://www.tiktok.com/@harbour/video/1',
+        'https://www.snapchat.com/spotlight/abc',
+        'https://example.com/harbour',
+      ];
+      for (final url in accounts) {
+        expect(isAccountUrl(url), isTrue, reason: url);
+      }
+      for (final url in posts) {
+        expect(isAccountUrl(url), isFalse, reason: url);
+      }
+      expect(
+        accountMediaUrl('https://x.com/harbour'),
+        'https://x.com/harbour/media',
+      );
+      expect(
+        accountMediaUrl('https://www.instagram.com/harbour/'),
+        'https://www.instagram.com/harbour/',
+      );
+    });
+
     test('recognises playlist pages but not a video inside a playlist', () {
       expect(
         isPlaylistUrl('https://www.youtube.com/playlist?list=PL123'),

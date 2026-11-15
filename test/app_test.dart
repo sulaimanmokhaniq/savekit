@@ -138,6 +138,7 @@ void main() {
   late UiFakeVaultLock vaultLock;
   late UiFakeDeviceFiles deviceFiles;
   late List<String> iconChanges;
+  late UiFakeDirect direct;
 
   /// Starts pending animations and async work, then runs them to the end.
   /// (pumpAndSettle cannot be used: progress spinners never settle.)
@@ -161,6 +162,7 @@ void main() {
     vaultLock = UiFakeVaultLock();
     deviceFiles = UiFakeDeviceFiles();
     iconChanges = [];
+    direct = UiFakeDirect();
     tester.view.physicalSize = const Size(824, 1830);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
@@ -178,6 +180,7 @@ void main() {
           vaultLock: vaultLock,
           deviceFiles: deviceFiles,
           iconChanges: iconChanges,
+          direct: direct,
           storage: storage ?? const StorageSnapshot(),
         ),
         child: const SaveKitApp(),
@@ -333,6 +336,48 @@ void main() {
     await tester.tap(find.text('Download all (4)'));
     await settle(tester);
     expect(find.text('4 downloads added to the queue'), findsOneWidget);
+  });
+
+  testWidgets('an account link lists its media to choose from', (tester) async {
+    await pumpApp(tester);
+    await tester.enterText(find.byType(TextField), 'https://x.com/harbour');
+    await tester.tap(find.text('Find media'));
+    await settle(tester);
+
+    // X profiles are listed from their media tab.
+    expect(native.accountRequests, [('https://x.com/harbour/media', 1)]);
+    expect(find.text('harbour.studio'), findsOneWidget);
+    expect(find.text('Load more'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Photos'));
+    await settle(tester);
+    await tester.tap(find.text('Select all'));
+    await settle(tester);
+    expect(find.text('3 selected'), findsOneWidget);
+    await shoot(tester, '19_account');
+
+    await tester.tap(find.text('Load more'));
+    await settle(tester);
+    expect(native.accountRequests.last, ('https://x.com/harbour/media', 7));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Videos'));
+    await settle(tester);
+    await tester.tap(find.bySemanticsLabel('Post 7'));
+    await settle(tester);
+    expect(find.text('4 selected'), findsOneWidget);
+
+    await tester.tap(find.text('Download 4'));
+    await settle(tester);
+
+    // The three photos go as one direct download; the video post is looked
+    // up like a playlist entry.
+    expect(direct.started.values.single, [
+      'https://cdn.example/1.jpg',
+      'https://cdn.example/3.jpg',
+      'https://cdn.example/5.jpg',
+    ]);
+    expect(native.started, hasLength(1));
+    expect(find.text('4 items on their way.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('a failed lookup offers to log in', (tester) async {

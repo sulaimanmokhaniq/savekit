@@ -89,6 +89,66 @@ bool isPlaylistUrl(String url) {
       (uri.queryParameters['list']?.isNotEmpty ?? false);
 }
 
+const _reservedX = {
+  'home', 'i', 'search', 'explore', 'settings', 'notifications', 'messages', //
+  'compose', 'hashtag', 'login', 'signup', 'tos', 'privacy', 'intent', 'share',
+};
+const _reservedInstagram = {
+  'p', 'reel', 'reels', 'stories', 'tv', 'explore', 'accounts', 'direct', //
+  'about', 'legal', 'developer', 'share',
+};
+
+/// Whether [url] is an account's page (a channel, a profile, a user's
+/// timeline) rather than a single post. Such links list the account's media
+/// to choose from instead of opening the format picker.
+bool isAccountUrl(String url) {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null || uri.host.isEmpty) return false;
+  final segments = [
+    for (final segment in uri.pathSegments)
+      if (segment.isNotEmpty) segment,
+  ];
+  if (segments.isEmpty) return false;
+  final first = segments.first.toLowerCase();
+
+  switch (MediaPlatform.fromUrl(url)) {
+    case MediaPlatform.youtube:
+      return first.startsWith('@') ||
+          (segments.length >= 2 &&
+              const {'channel', 'c', 'user'}.contains(first));
+    case MediaPlatform.x:
+      if (_reservedX.contains(first)) return false;
+      return segments.length == 1 ||
+          (segments.length == 2 &&
+              const {'media', 'with_replies'}.contains(segments[1]));
+    case MediaPlatform.instagram:
+      return segments.length == 1 && !_reservedInstagram.contains(first);
+    case MediaPlatform.tiktok:
+      return segments.length == 1 && first.startsWith('@');
+    case MediaPlatform.snapchat:
+      return (segments.length == 1 && first.startsWith('@')) ||
+          (segments.length == 2 && first == 'add');
+    default:
+      return false;
+  }
+}
+
+/// The address to list an account's media from. X shows text posts on a
+/// profile; its media tab is what is wanted here.
+String accountMediaUrl(String url) {
+  final uri = Uri.parse(url.trim());
+  if (MediaPlatform.fromUrl(url) == MediaPlatform.x) {
+    final segments = [
+      for (final segment in uri.pathSegments)
+        if (segment.isNotEmpty) segment,
+    ];
+    if (segments.length == 1) {
+      return uri.replace(pathSegments: [segments.single, 'media']).toString();
+    }
+  }
+  return url.trim();
+}
+
 /// Whether [url] belongs to one of the named platforms. Used to decide when a
 /// clipboard link is worth offering; any http(s) link can still be pasted by hand.
 bool isKnownPlatformUrl(String url) =>
