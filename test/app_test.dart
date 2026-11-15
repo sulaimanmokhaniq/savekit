@@ -227,8 +227,11 @@ void main() {
       )
       .position;
 
+  /// Scrolls Settings until [target] exists, then brings it fully into view,
+  /// clear of the navigation bar.
   Future<void> scrollSettingsTo(WidgetTester tester, Finder target) async {
     await tester.scrollUntilVisible(target, 250, scrollable: settingsList());
+    await tester.ensureVisible(target);
     await settle(tester);
   }
 
@@ -278,7 +281,7 @@ void main() {
     expect(find.text('27.0 MB'), findsOneWidget);
     await shoot(tester, '02_format_picker');
 
-    await tester.tap(find.text('1080p'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '1080p'));
     await tester.pump();
     expect(find.text('Download · about 148 MB'), findsOneWidget);
 
@@ -311,7 +314,7 @@ void main() {
     await tester.tap(find.text('Find media'));
     await settle(tester);
 
-    await tester.tap(find.text('1080p'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '1080p'));
     await tester.pump();
 
     // Trim: turning it on selects the whole video; drag the start inwards.
@@ -840,15 +843,19 @@ void main() {
   ) async {
     await pumpApp(tester);
     await openTab(tester, 'Settings');
-    expect(find.text('Ember'), findsOneWidget);
+    // Once as a theme, once as an icon colour.
+    expect(find.text('Ember'), findsNWidgets(2));
     expect(AppColors.current.id, 'ember');
     await shoot(tester, '15_settings_ember');
 
     for (final name in ['Vault', 'Pulse', 'Tide']) {
-      final card = find.descendant(
-        of: find.byType(SettingsScreen),
-        matching: find.text(name),
-      );
+      // The theme row comes before the icon row, which has the same names.
+      final card = find
+          .descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.text(name),
+          )
+          .first;
       // The theme row scrolls sideways; later themes start off screen.
       await tester.scrollUntilVisible(
         card,
@@ -893,11 +900,48 @@ void main() {
     expect(iconChanges, ['ember', 'vault', 'pulse', 'tide']);
     expect(themeRow(tester).pixels, greaterThan(0));
 
-    await tester.tap(find.widgetWithText(SwitchListTile, 'Match the app icon'));
+    // The icon's colour can be chosen on its own: the theme stays as it is.
+    expect(find.text('APP ICON'), findsOneWidget);
+    expect(find.bySemanticsLabel('Same as theme'), findsOneWidget);
+    // The sideways list that holds the icon tiles, wherever it has scrolled.
+    final iconRow = find
+        .ancestor(
+          of: find.bySemanticsLabel(RegExp(r' icon$')).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.bySemanticsLabel('Gold icon'),
+      120,
+      scrollable: iconRow,
+    );
+    await tester.ensureVisible(find.bySemanticsLabel('Gold icon'));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Gold icon'));
     await settle(tester);
-    // Turned off: back to the default icon, while the theme stays.
-    expect(iconChanges.last, 'ember');
+    expect(iconChanges.last, 'gold');
     expect(AppColors.current.name, 'Tide');
+    await shoot(tester, '21_settings_icon');
+
+    // A later theme change no longer moves the icon.
+    ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
+        .read(settingsControllerProvider.notifier)
+        .setTheme('pulse');
+    await settle(tester);
+    expect(AppColors.current.name, 'Pulse');
+    expect(iconChanges.last, 'gold');
+
+    // "Same as theme" ties them together again.
+    await tester.scrollUntilVisible(
+      find.bySemanticsLabel('Same as theme'),
+      -120,
+      scrollable: iconRow,
+    );
+    await tester.ensureVisible(find.bySemanticsLabel('Same as theme'));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Same as theme'));
+    await settle(tester);
+    expect(iconChanges.last, 'pulse');
 
     await openTab(tester, 'Home');
     await shoot(tester, '17_home_tide');
@@ -909,12 +953,14 @@ void main() {
     await pumpApp(tester, signedIn: {PlatformAccount.instagram});
     await openTab(tester, 'Settings');
 
+    await scrollSettingsTo(tester, find.text('One-tap download'));
     await tester.tap(find.text('One-tap download'));
     await settle(tester);
     await tester.tap(find.text('720p').last);
     await settle(tester);
     expect(find.text('720p'), findsOneWidget);
 
+    await scrollSettingsTo(tester, find.text('Wi-Fi only'));
     await tester.tap(find.text('Wi-Fi only'));
     await settle(tester);
     expect(

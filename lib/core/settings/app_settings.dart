@@ -73,7 +73,7 @@ enum VaultSort {
 class AppSettings {
   const AppSettings({
     this.themeId = 'ember',
-    this.matchIcon = true,
+    this.iconId = AppSettings.iconMatchesTheme,
     this.oneTap = QualityPreference.ask,
     this.wifiOnly = false,
     this.maxConcurrent = 3,
@@ -89,8 +89,14 @@ class AppSettings {
   /// Id of the selected [AppPalette].
   final String themeId;
 
-  /// Whether the home-screen icon takes the theme's colour.
-  final bool matchIcon;
+  /// Colour of the home-screen icon: the id of an [AppPalette], or
+  /// [iconMatchesTheme] to follow the app's theme.
+  final String iconId;
+
+  static const iconMatchesTheme = 'match';
+
+  /// The palette id whose icon the home screen should show.
+  String get launcherIconId => iconId == iconMatchesTheme ? themeId : iconId;
 
   /// Quality used when a link is shared to the app; [QualityPreference.ask]
   /// opens the picker instead.
@@ -125,7 +131,7 @@ class AppSettings {
 
   AppSettings copyWith({
     String? themeId,
-    bool? matchIcon,
+    String? iconId,
     QualityPreference? oneTap,
     bool? wifiOnly,
     int? maxConcurrent,
@@ -138,7 +144,7 @@ class AppSettings {
     AppLanguage? language,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
-    matchIcon: matchIcon ?? this.matchIcon,
+    iconId: iconId ?? this.iconId,
     oneTap: oneTap ?? this.oneTap,
     wifiOnly: wifiOnly ?? this.wifiOnly,
     maxConcurrent: (maxConcurrent ?? this.maxConcurrent).clamp(
@@ -156,7 +162,7 @@ class AppSettings {
 
   Map<String, dynamic> toMap() => {
     'themeId': themeId,
-    'matchIcon': matchIcon,
+    'iconId': iconId,
     'oneTap': oneTap.id,
     'wifiOnly': wifiOnly,
     'maxConcurrent': maxConcurrent,
@@ -171,7 +177,10 @@ class AppSettings {
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
     themeId: map['themeId'] as String? ?? 'ember',
-    matchIcon: map['matchIcon'] as bool? ?? true,
+    // Older versions stored a "match the theme" switch instead.
+    iconId:
+        map['iconId'] as String? ??
+        (map['matchIcon'] == false ? defaultThemeId : iconMatchesTheme),
     oneTap: QualityPreference.fromId(map['oneTap'] as String?),
     wifiOnly: map['wifiOnly'] as bool? ?? false,
     maxConcurrent: ((map['maxConcurrent'] as num?)?.toInt() ?? 3).clamp(
@@ -272,17 +281,14 @@ class SettingsController extends Notifier<AppSettings> {
     _syncIcon();
   }
 
-  void setMatchIcon(bool value) {
-    _set(state.copyWith(matchIcon: value));
+  /// [iconId] is a palette id, or [AppSettings.iconMatchesTheme].
+  void setIcon(String iconId) {
+    _set(state.copyWith(iconId: iconId));
     _syncIcon();
   }
 
-  /// The home-screen icon follows the theme, or goes back to the default
-  /// icon when matching is off.
-  void _syncIcon() {
-    final theme = state.matchIcon ? state.themeId : AppSettings.defaultThemeId;
-    ref.read(launcherIconProvider)(theme);
-  }
+  /// Shows the chosen icon colour on the home screen.
+  void _syncIcon() => ref.read(launcherIconProvider)(state.launcherIconId);
 
   void setOneTap(QualityPreference value) =>
       _set(state.copyWith(oneTap: value));

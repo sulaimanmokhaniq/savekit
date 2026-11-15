@@ -246,6 +246,12 @@ const arabicStrings = <String, String>{
   '{} theme': 'مظهر {}',
   'Match the app icon': 'مطابقة أيقونة التطبيق',
   'The icon on your home screen takes the theme’s colour. It can take a few seconds to change.': 'تأخذ الأيقونة على الشاشة الرئيسية لون المظهر. قد يستغرق التغيير بضع ثوانٍ.',
+  'APP ICON': 'أيقونة التطبيق',
+  'LANGUAGE': 'اللغة',
+  'Same as theme': 'مثل المظهر',
+  '{} icon': 'أيقونة {}',
+  'The colour of the SaveKit icon on your home screen. It can take a few seconds to change.':
+      'لون أيقونة SaveKit على الشاشة الرئيسية. قد يستغرق التغيير بضع ثوانٍ.',
   'Language': 'اللغة',
   'The language of SaveKit’s own text.': 'لغة نصوص SaveKit.',
   'Phone language': 'لغة الهاتف',

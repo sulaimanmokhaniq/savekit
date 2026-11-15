@@ -108,8 +108,36 @@ class AppPalette {
     textMuted: Color(0xFF8B93A7),
   );
 
+  static const rose = AppPalette(
+    id: 'rose',
+    name: 'Rose',
+    description: 'Plum black, rose pink',
+    background: Color(0xFF120B0F),
+    surface: Color(0xFF1C1218),
+    surfaceHigh: Color(0xFF271A22),
+    border: Color(0xFF35232D),
+    accent: Color(0xFFFF4F7B),
+    onAccent: Color(0xFF1F050D),
+    text: Color(0xFFF7EBF0),
+    textMuted: Color(0xFFA68A96),
+  );
+
+  static const gold = AppPalette(
+    id: 'gold',
+    name: 'Gold',
+    description: 'Dark olive, warm gold',
+    background: Color(0xFF0F0E09),
+    surface: Color(0xFF191710),
+    surfaceHigh: Color(0xFF232017),
+    border: Color(0xFF312D1F),
+    accent: Color(0xFFF4B93A),
+    onAccent: Color(0xFF1C1400),
+    text: Color(0xFFF5F0E3),
+    textMuted: Color(0xFFA0977F),
+  );
+
   /// In the order the theme picker shows them.
-  static const all = [ember, vault, pulse, tide, classic];
+  static const all = [ember, vault, pulse, tide, rose, gold, classic];
 
   static const fallback = ember;
 

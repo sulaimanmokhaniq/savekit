@@ -80,23 +80,25 @@ class SettingsScreen extends ConsumerWidget {
             selectedId: settings.themeId,
             onSelect: settingsController.setTheme,
           ),
-          const SizedBox(height: 10),
-          Card(
-            child: SwitchListTile(
-              value: settings.matchIcon,
-              onChanged: settingsController.setMatchIcon,
-              secondary: Icon(Icons.apps_rounded, color: AppColors.textMuted),
-              title: Text(tr('Match the app icon')),
-              subtitle: Text(
-                tr(
-                  'The icon on your home screen takes the theme’s colour. '
-                  'It can take a few seconds to change.',
-                ),
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+          const SizedBox(height: 22),
+          _SectionTitle(tr('APP ICON')),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              tr(
+                'The colour of the SaveKit icon on your home screen. It can '
+                'take a few seconds to change.',
               ),
+              style: TextStyle(color: AppColors.textMuted, height: 1.4),
             ),
           ),
-          const SizedBox(height: 10),
+          _IconPicker(
+            selectedId: settings.iconId,
+            themeId: settings.themeId,
+            onSelect: settingsController.setIcon,
+          ),
+          const SizedBox(height: 22),
+          _SectionTitle(tr('LANGUAGE')),
           Card(
             child: _ChoiceRow<AppLanguage>(
               icon: Icons.language_rounded,
@@ -604,6 +606,98 @@ class _ThemePicker extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// The home-screen icon in each colour, plus "same as the theme".
+class _IconPicker extends StatelessWidget {
+  const _IconPicker({
+    required this.selectedId,
+    required this.themeId,
+    required this.onSelect,
+  });
+
+  /// A palette id, or [AppSettings.iconMatchesTheme].
+  final String selectedId;
+
+  /// The app's current theme, shown on the "same as theme" tile.
+  final String themeId;
+  final void Function(String id) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tile({
+      required String id,
+      required AppPalette palette,
+      required String name,
+      required String label,
+    }) {
+      final selected = id == selectedId;
+      return Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: InkWell(
+          onTap: () => onSelect(id),
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          child: Container(
+            width: 84,
+            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(
+                color: selected ? AppColors.accent : AppColors.border,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SaveKitLogo(size: 44, palette: palette),
+                const SizedBox(height: 8),
+                ExcludeSemantics(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? AppColors.text : AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 96,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          tile(
+            id: AppSettings.iconMatchesTheme,
+            palette: AppPalette.byId(themeId),
+            name: tr('Same as theme'),
+            label: tr('Same as theme'),
+          ),
+          for (final palette in AppPalette.all) ...[
+            const SizedBox(width: 10),
+            tile(
+              id: palette.id,
+              palette: palette,
+              name: palette.name,
+              label: tr('${palette.name} icon'),
+            ),
+          ],
+        ],
       ),
     );
   }

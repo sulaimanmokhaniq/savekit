@@ -5,13 +5,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 
 /**
- * Makes the home-screen icon follow the theme chosen in the app. The manifest declares one
- * launcher alias per theme; this enables the chosen one and disables the rest. The launcher
+ * Gives the home-screen icon the colour chosen in the app. The manifest declares one
+ * launcher alias per colour; this enables the chosen one and disables the rest. The launcher
  * picks the change up on its own, usually within a few seconds.
  */
 object LauncherIcon {
 
-    private val THEMES = listOf("ember", "vault", "pulse", "tide", "classic")
+    private val THEMES = listOf("ember", "vault", "pulse", "tide", "classic", "rose", "gold")
 
     private fun component(context: Context, theme: String) = ComponentName(
         context,

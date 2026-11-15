@@ -198,6 +198,19 @@ void main() {
       expect(repository.load().maxConcurrent, 1);
     });
 
+    test('the icon colour follows the theme only when set to match', () {
+      const matching = AppSettings(themeId: 'tide');
+      expect(matching.launcherIconId, 'tide');
+      expect(matching.copyWith(iconId: 'gold').launcherIconId, 'gold');
+      // Settings saved by the version that had a "match" switch.
+      expect(AppSettings.fromMap(const {'matchIcon': false}).iconId, 'ember');
+      expect(
+        AppSettings.fromMap(const {'matchIcon': true}).iconId,
+        AppSettings.iconMatchesTheme,
+      );
+      expect(AppPalette.all.map((p) => p.id), containsAll(['rose', 'gold']));
+    });
+
     test('every theme has a unique id and an unknown id falls back', () {
       final ids = AppPalette.all.map((p) => p.id).toSet();
       expect(ids, hasLength(AppPalette.all.length));

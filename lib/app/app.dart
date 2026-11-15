@@ -33,12 +33,10 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
     L10n.locale = _locale;
     WidgetsBinding.instance.addObserver(this);
 
-    // Bring the home-screen icon in line with the saved theme. Android does
+    // Bring the home-screen icon in line with the saved choice. Android does
     // nothing when it already matches.
     final settings = ref.read(settingsControllerProvider);
-    ref.read(launcherIconProvider)(
-      settings.matchIcon ? settings.themeId : AppSettings.defaultThemeId,
-    );
+    ref.read(launcherIconProvider)(settings.launcherIconId);
   }
 
   @override

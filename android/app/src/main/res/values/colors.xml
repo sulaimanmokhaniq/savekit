@@ -6,6 +6,8 @@
     <color name="ic_launcher_background_pulse">#8E6CFF</color>
     <color name="ic_launcher_background_tide">#12B5E5</color>
     <color name="ic_launcher_background_classic">#7C9CFF</color>
+    <color name="ic_launcher_background_rose">#FF4F7B</color>
+    <color name="ic_launcher_background_gold">#F4B93A</color>
     <color name="ic_launcher_background">#FF6A2B</color>
     <color name="notification_accent">#FF6A2B</color>
 </resources>

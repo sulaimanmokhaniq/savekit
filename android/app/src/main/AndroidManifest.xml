@@ -47,8 +47,8 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
-        <!-- One launcher entry per theme. Exactly one is enabled at a time, which is how
-             the home-screen icon follows the theme chosen in the app (see LauncherIcon.kt). -->
+        <!-- One launcher entry per icon colour. Exactly one is enabled at a time, which is
+             how the home-screen icon takes the colour chosen in the app (see LauncherIcon.kt). -->
         <activity-alias
             android:name=".LauncherEmber"
             android:targetActivity=".MainActivity"
@@ -103,6 +103,30 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_classic"
+            android:label="SaveKit">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRose"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_rose"
+            android:label="SaveKit">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherGold"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_gold"
             android:label="SaveKit">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

@@ -189,14 +189,15 @@ void main() {
 
     // Still on Settings, now in Arabic and mirrored.
     expect(find.byType(SettingsScreen), findsOneWidget);
-    expect(find.text('اللغة'), findsOneWidget);
+    // The section heading and the row are both "Language" in Arabic.
+    expect(find.text('اللغة'), findsNWidgets(2));
     expect(find.text('Language'), findsNothing);
     expect(
-      Directionality.of(tester.element(find.text('اللغة'))),
+      Directionality.of(tester.element(find.text('اللغة').first)),
       TextDirection.rtl,
     );
 
-    await tester.tap(find.text('اللغة'));
+    await tester.tap(find.text('اللغة').last);
     await settle(tester);
     await tester.tap(find.text('English').last);
     await settle(tester);
