@@ -677,9 +677,16 @@ void main() {
     await tester.tap(find.text('WhatsApp statuses'));
     await settle(tester);
 
+    // Photos and videos are on separate tabs.
+    expect(find.text('Photos (3)'), findsOneWidget);
+    expect(find.text('Videos (3)'), findsOneWidget);
     expect(find.text('700 KB'), findsOneWidget);
-    await tester.tap(find.text('700 KB'));
-    await tester.tap(find.text('1.4 MB'));
+    expect(find.text('1.4 MB'), findsNothing);
+
+    // A long press starts selecting; further taps add to the selection.
+    await tester.longPress(find.text('700 KB'));
+    await settle(tester);
+    await tester.tap(find.text('2.1 MB'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
     await shoot(tester, '13_whatsapp_statuses');
@@ -688,6 +695,30 @@ void main() {
     await settle(tester);
     expect(deviceFiles.imported.single, hasLength(2));
     expect(find.textContaining('2 statuses saved'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('tools: a WhatsApp status can be previewed before saving', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openTab(tester, 'Tools');
+    await tester.tap(find.text('WhatsApp statuses'));
+    await settle(tester);
+
+    await tester.tap(find.text('Videos (3)'));
+    await settle(tester);
+    expect(find.text('1.4 MB'), findsOneWidget);
+
+    await tester.tap(find.text('1.4 MB'));
+    await settle(tester);
+    expect(find.text('Video status'), findsOneWidget);
+    expect(find.text('Save · 1.4 MB'), findsOneWidget);
+
+    await tester.tap(find.text('Save · 1.4 MB'));
+    await settle(tester);
+    expect(deviceFiles.imported.single, ['content://statuses/1']);
+    expect(find.textContaining('Saved to the Vault'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 

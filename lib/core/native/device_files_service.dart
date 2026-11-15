@@ -116,6 +116,14 @@ class DeviceFilesService {
     }
   }
 
+  /// Makes a status available as a temporary file, to show it full screen
+  /// before saving. Returns the file's path.
+  Future<String> previewStatus(String uri) => _guard(
+    () async =>
+        await _channel.invokeMethod<String>('previewStatus', {'uri': uri}) ??
+        '',
+  );
+
   /// Copies statuses into [outputDir] and returns the new files' paths.
   Future<List<String>> importStatuses(List<String> uris, String outputDir) =>
       _guard(() async {

@@ -73,7 +73,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           : PageView.builder(
               itemCount: files.length,
               onPageChanged: (index) => setState(() => _index = index),
-              itemBuilder: (context, index) => _FileView(
+              itemBuilder: (context, index) => MediaFileView(
                 key: ValueKey(files[index]),
                 path: files[index],
                 title: widget.task.title,
@@ -101,8 +101,9 @@ class _Missing extends StatelessWidget {
   }
 }
 
-class _FileView extends StatelessWidget {
-  const _FileView({super.key, required this.path, required this.title});
+/// Shows one local file: photos zoom, video and audio play.
+class MediaFileView extends StatelessWidget {
+  const MediaFileView({super.key, required this.path, required this.title});
 
   final String path;
   final String title;

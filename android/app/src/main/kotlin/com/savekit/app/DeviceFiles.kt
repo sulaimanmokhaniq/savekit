@@ -177,6 +177,34 @@ object DeviceFiles {
         return bytes.toByteArray()
     }
 
+    /**
+     * Copies one status into the app's cache so it can be shown full screen before the
+     * user decides to save it. Returns the cached file's path.
+     */
+    fun cacheStatusForPreview(context: Context, uri: Uri): String {
+        val directory = File(context.cacheDir, "status_preview").apply { mkdirs() }
+        // Previews are throwaway; keep the folder from growing.
+        directory.listFiles()?.forEach { file ->
+            if (System.currentTimeMillis() - file.lastModified() > 60 * 60 * 1000L) file.delete()
+        }
+        var name = "status"
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) name = cursor.getString(0)
+        }
+        val target = File(directory, name.replace(Regex("[\\\\/:*?\"<>|]"), "_"))
+        if (target.isFile && target.length() > 0) return target.absolutePath
+        val input = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("The status could not be opened.")
+        input.use { source -> target.outputStream().use { source.copyTo(it) } }
+        return target.absolutePath
+    }
+
     /** Copies the chosen statuses into [outputDir] and returns the new file paths. */
     fun importStatuses(context: Context, uris: List<String>, outputDir: File): List<String> {
         if (!outputDir.exists()) outputDir.mkdirs()

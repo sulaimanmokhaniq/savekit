@@ -157,6 +157,9 @@ class UiFakeDeviceFiles implements DeviceFilesService {
   ];
 
   @override
+  Future<String> previewStatus(String uri) async => '/none/preview.jpg';
+
+  @override
   Future<Uint8List?> statusThumbnail(String uri, {int size = 320}) async =>
       null;
 

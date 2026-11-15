@@ -11,6 +11,7 @@ import '../../../core/widgets/formatters.dart';
 import '../../../core/widgets/media_thumbnail.dart';
 import '../../downloader/application/download_queue_controller.dart';
 import '../../extractor/domain/media_format.dart';
+import '../../vault/presentation/media_viewer_screen.dart';
 
 /// Whether access to WhatsApp's status folder has been granted.
 final statusAccessProvider = FutureProvider<bool>(
@@ -37,6 +38,25 @@ class StatusSaverScreen extends ConsumerStatefulWidget {
 class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
   final _selected = <String>{};
   bool _saving = false;
+
+  void _toggle(WhatsAppStatus status) => setState(() {
+    if (!_selected.remove(status.uri)) _selected.add(status.uri);
+  });
+
+  /// Opens a status full screen. Saving from there saves just that one.
+  Future<void> _preview(WhatsAppStatus status, List<WhatsAppStatus> all) async {
+    final save = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => _StatusPreviewScreen(status: status)),
+    );
+    if (save == true && mounted) {
+      setState(() {
+        _selected
+          ..clear()
+          ..add(status.uri);
+      });
+      await _save(all);
+    }
+  }
 
   Future<void> _grant({required bool business}) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -122,93 +142,146 @@ class _StatusSaverScreenState extends ConsumerState<StatusSaverScreen> {
     final statuses = ref.watch(statusListProvider);
     final items = statuses.value ?? const <WhatsAppStatus>[];
     final granted = access.value ?? false;
+    final photos = [
+      for (final status in items)
+        if (!status.isVideo) status,
+    ];
+    final videos = [
+      for (final status in items)
+        if (status.isVideo) status,
+    ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _selected.isEmpty
-              ? 'WhatsApp statuses'
-              : '${_selected.length} selected',
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          if (granted) ...[
-            IconButton(
-              onPressed: () => ref.invalidate(statusListProvider),
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              onSelected: (_) async {
-                await ref.read(deviceFilesServiceProvider).forgetStatusFolder();
-                ref.invalidate(statusAccessProvider);
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'forget', child: Text('Remove access')),
-              ],
-            ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _selected.isEmpty
+                ? 'WhatsApp statuses'
+                : '${_selected.length} selected',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          actions: [
+            if (granted) ...[
+              IconButton(
+                onPressed: () => ref.invalidate(statusListProvider),
+                tooltip: 'Refresh',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'More',
+                onSelected: (_) async {
+                  await ref
+                      .read(deviceFilesServiceProvider)
+                      .forgetStatusFolder();
+                  ref.invalidate(statusAccessProvider);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'forget', child: Text('Remove access')),
+                ],
+              ),
+            ],
           ],
-        ],
-      ),
-      bottomNavigationBar: _selected.isEmpty
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : () => _save(items),
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.download_rounded, size: 20),
-                  label: Text(_saving ? 'Saving…' : 'Save ${_selected.length}'),
+        ),
+        bottomNavigationBar: _selected.isEmpty
+            ? null
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : () => _save(items),
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded, size: 20),
+                    label: Text(
+                      _saving ? 'Saving…' : 'Save ${_selected.length}',
+                    ),
+                  ),
                 ),
               ),
-            ),
-      body: switch ((access.isLoading && !access.hasValue, granted)) {
-        (true, _) => const Center(child: CircularProgressIndicator()),
-        (_, false) => _Setup(onGrant: _grant),
-        _ when statuses.isLoading && !statuses.hasValue => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        _ when statuses.hasError => EmptyState(
-          icon: Icons.error_outline_rounded,
-          title: 'Couldn’t read the statuses',
-          message: '${statuses.error}',
-        ),
-        _ when items.isEmpty => const EmptyState(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: 'No statuses yet',
-          message:
-              'Open WhatsApp and view a status first. WhatsApp keeps viewed '
-              'statuses for about a day, then they appear here.',
-        ),
-        _ => GridView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 160,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.72,
+        body: switch ((access.isLoading && !access.hasValue, granted)) {
+          (true, _) => const Center(child: CircularProgressIndicator()),
+          (_, false) => _Setup(onGrant: _grant),
+          _ when statuses.isLoading && !statuses.hasValue => const Center(
+            child: CircularProgressIndicator(),
           ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final status = items[index];
-            return _StatusTile(
-              key: ValueKey(status.uri),
-              status: status,
-              selected: _selected.contains(status.uri),
-              onToggle: () => setState(() {
-                if (!_selected.remove(status.uri)) _selected.add(status.uri);
-              }),
-            );
-          },
-        ),
-      },
+          _ when statuses.hasError => EmptyState(
+            icon: Icons.error_outline_rounded,
+            title: 'Couldn’t read the statuses',
+            message: '${statuses.error}',
+          ),
+          _ when items.isEmpty => const EmptyState(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'No statuses yet',
+            message:
+                'Open WhatsApp and view a status first. WhatsApp keeps viewed '
+                'statuses for about a day, then they appear here.',
+          ),
+          _ => Column(
+            children: [
+              TabBar(
+                tabs: [
+                  Tab(text: 'Photos (${photos.length})'),
+                  Tab(text: 'Videos (${videos.length})'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    for (final group in [photos, videos])
+                      group.isEmpty
+                          ? EmptyState(
+                              icon: identical(group, photos)
+                                  ? Icons.image_outlined
+                                  : Icons.movie_outlined,
+                              title: identical(group, photos)
+                                  ? 'No photo statuses'
+                                  : 'No video statuses',
+                              message:
+                                  'View a status in WhatsApp first, then '
+                                  'refresh.',
+                            )
+                          : GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                12,
+                                20,
+                                24,
+                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 160,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                    childAspectRatio: 0.72,
+                                  ),
+                              itemCount: group.length,
+                              itemBuilder: (context, index) {
+                                final status = group[index];
+                                return _StatusTile(
+                                  key: ValueKey(status.uri),
+                                  status: status,
+                                  selected: _selected.contains(status.uri),
+                                  // Tap previews; once something is selected,
+                                  // taps add to the selection instead.
+                                  onTap: () => _selected.isEmpty
+                                      ? _preview(status, items)
+                                      : _toggle(status),
+                                  onToggle: () => _toggle(status),
+                                );
+                              },
+                            ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        },
+      ),
     );
   }
 }
@@ -292,11 +365,17 @@ class _StatusTile extends ConsumerStatefulWidget {
     super.key,
     required this.status,
     required this.selected,
+    required this.onTap,
     required this.onToggle,
   });
 
   final WhatsAppStatus status;
   final bool selected;
+
+  /// Tap on the tile: preview, or toggle while selecting.
+  final VoidCallback onTap;
+
+  /// Long press, or a tap on the corner mark: select or unselect.
   final VoidCallback onToggle;
 
   @override
@@ -322,7 +401,8 @@ class _StatusTileState extends ConsumerState<_StatusTile> {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: widget.onToggle,
+        onTap: widget.onTap,
+        onLongPress: widget.onToggle,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -369,29 +449,98 @@ class _StatusTileState extends ConsumerState<_StatusTile> {
               ),
             ),
             Positioned(
-              right: 6,
-              top: 6,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: widget.selected
-                      ? AppColors.accent
-                      : Colors.black.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white, width: 1.5),
+              right: 0,
+              top: 0,
+              child: GestureDetector(
+                onTap: widget.onToggle,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: _mark(),
                 ),
-                child: widget.selected
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: AppColors.onAccent,
-                      )
-                    : null,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _mark() => Container(
+    width: 24,
+    height: 24,
+    decoration: BoxDecoration(
+      color: widget.selected
+          ? AppColors.accent
+          : Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.white, width: 1.5),
+    ),
+    child: widget.selected
+        ? Icon(Icons.check_rounded, size: 16, color: AppColors.onAccent)
+        : null,
+  );
+}
+
+/// One status, full screen, before it is saved: photos zoom, videos play.
+class _StatusPreviewScreen extends ConsumerStatefulWidget {
+  const _StatusPreviewScreen({required this.status});
+
+  final WhatsAppStatus status;
+
+  @override
+  ConsumerState<_StatusPreviewScreen> createState() =>
+      _StatusPreviewScreenState();
+}
+
+class _StatusPreviewScreenState extends ConsumerState<_StatusPreviewScreen> {
+  late final Future<String> _file = ref
+      .read(deviceFilesServiceProvider)
+      .previewStatus(widget.status.uri);
+
+  @override
+  Widget build(BuildContext context) {
+    final status = widget.status;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: Text(
+          status.isVideo ? 'Video status' : 'Photo status',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.download_rounded, size: 20),
+            label: Text('Save · ${formatBytes(status.size)}'),
+          ),
+        ),
+      ),
+      body: FutureBuilder<String>(
+        future: _file,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'This status could not be opened. It may have expired.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ),
+            );
+          }
+          final path = snapshot.data;
+          if (path == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return MediaFileView(path: path, title: status.name);
+        },
       ),
     );
   }

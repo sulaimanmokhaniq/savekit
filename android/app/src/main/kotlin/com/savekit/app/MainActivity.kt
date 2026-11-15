@@ -338,6 +338,17 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
 
+            "previewStatus" -> {
+                val uri = call.argument<String>("uri")
+                if (uri.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "previewStatus requires a 'uri'.", null)
+                    return
+                }
+                DownloadEngine.runInBackground(result, "STATUS_FAILED") {
+                    DeviceFiles.cacheStatusForPreview(applicationContext, Uri.parse(uri))
+                }
+            }
+
             "importStatuses" -> {
                 val uris = call.argument<List<String>>("uris").orEmpty()
                 val outputDir = call.argument<String>("outputDir")
