@@ -224,6 +224,17 @@ class AudioPlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> toggle() => player.playing ? player.pause() : player.play();
+
+  /// Ends playback and removes the media notification; the place in the
+  /// file is kept for next time.
+  Future<void> stop() async {
+    _savePosition();
+    _sleepTimer?.cancel();
+    await _player?.stop();
+    if (!ref.mounted) return;
+    state = PlayerView(speed: state.speed);
+  }
+
   Future<void> next() => player.seekToNext();
   Future<void> previous() => player.seekToPrevious();
   Future<void> seek(Duration position) => player.seek(position);
@@ -276,4 +287,8 @@ Future<void> initBackgroundAudio() => JustAudioBackground.init(
   androidNotificationChannelId: 'com.savekit.app.audio',
   androidNotificationChannelName: 'Audio playback',
   androidNotificationIcon: 'drawable/ic_stat_savekit',
+  // Stay a foreground service while paused. Leaving and re-entering the
+  // foreground on every pause and resume races with newer Android versions'
+  // time limit for it, which shows up as "SaveKit isn't responding".
+  androidStopForegroundOnPause: false,
 );

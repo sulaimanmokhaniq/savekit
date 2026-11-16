@@ -80,6 +80,15 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
           tr('Audio player'),
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
+        actions: [
+          if (current != null)
+            IconButton(
+              onPressed: controller.stop,
+              tooltip: tr('Stop'),
+              icon: const Icon(Icons.stop_circle_outlined),
+            ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: tracks.isEmpty
           ? EmptyState(
