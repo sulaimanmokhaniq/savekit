@@ -28,6 +28,7 @@ class SettingsScreen extends ConsumerWidget {
       galleryVersion: engine?.galleryVersion ?? 'not ready',
       settings: ref.read(settingsControllerProvider),
       events: AppLog.lines,
+      exits: await ref.read(deviceServiceProvider).exitReasons(),
     );
     try {
       await shareReport(report);

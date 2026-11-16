@@ -22,20 +22,30 @@ object LauncherIcon {
     fun apply(context: Context, theme: String) {
         val chosen = if (theme in THEMES) theme else THEMES.first()
         val packages = context.packageManager
-        // Enable the new entry before disabling the old one, so the app is never
-        // without a launcher entry.
-        packages.setComponentEnabledSetting(
-            component(context, chosen),
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP,
-        )
-        for (other in THEMES) {
-            if (other == chosen) continue
+        // Each change makes the launcher reload the app, so only touch entries
+        // that are not already as wanted. Usually that is none of them.
+        fun set(theme: String, enabled: Boolean) {
+            val name = component(context, theme)
+            val current = packages.getComponentEnabledSetting(name)
+            val isEnabled = when (current) {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED -> false
+                // Default: as the manifest says, where only Ember is enabled.
+                else -> theme == THEMES.first()
+            }
+            if (isEnabled == enabled) return
             packages.setComponentEnabledSetting(
-                component(context, other),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                name,
+                if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP,
             )
+        }
+        // Enable the new entry before disabling the old one, so the app is never
+        // without a launcher entry.
+        set(chosen, true)
+        for (other in THEMES) {
+            if (other != chosen) set(other, false)
         }
     }
 }

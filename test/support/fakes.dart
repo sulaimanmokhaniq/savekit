@@ -254,6 +254,9 @@ class FakeDevice implements DeviceService {
   Future<bool> isCharging() async => false;
 
   @override
+  Future<List<String>> exitReasons() async => const [];
+
+  @override
   Future<bool> openUrl(String url) async {
     opened.add(url);
     return true;

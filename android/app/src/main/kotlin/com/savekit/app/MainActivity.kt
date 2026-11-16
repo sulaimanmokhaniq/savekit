@@ -31,6 +31,7 @@ import java.io.File
  *  - getAppInfo()                                   -> {version, android, sdk, device, abi}
  *  - isCharging()                                   -> whether the phone is charging
  *  - openUrl(url)                                   opens an https address in the browser
+ *  - getExitReasons()                               -> why the app last closed (crash, freeze)
  *  - setLauncherIcon(theme)                          home-screen icon follows the theme
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
@@ -363,13 +364,15 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
             }
 
-            "setLauncherIcon" -> {
-                try {
-                    LauncherIcon.apply(applicationContext, call.argument<String>("theme").orEmpty())
-                    result.success(null)
-                } catch (e: Exception) {
-                    result.error("ICON_FAILED", e.message, null)
-                }
+            // Talks to the system's package service, which can be slow: never on
+            // the main thread, or the app stops responding.
+            "setLauncherIcon" -> DownloadEngine.runInBackground(result, "ICON_FAILED") {
+                LauncherIcon.apply(applicationContext, call.argument<String>("theme").orEmpty())
+                null
+            }
+
+            "getExitReasons" -> DownloadEngine.runInBackground(result, "EXIT_FAILED") {
+                ExitReasons.recent(applicationContext)
             }
 
             "pickVideo" -> launchPicker(

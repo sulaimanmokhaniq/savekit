@@ -28,6 +28,10 @@ abstract interface class DeviceService {
 
   /// Opens an https address in the phone's browser.
   Future<bool> openUrl(String url);
+
+  /// How the app's process ended recently (crash, freeze…), newest first,
+  /// as text lines for a problem report.
+  Future<List<String>> exitReasons();
 }
 
 class ChannelDeviceService implements DeviceService {
@@ -57,6 +61,24 @@ class ChannelDeviceService implements DeviceService {
       return await _channel.invokeMethod<bool>('isCharging') ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<List<String>> exitReasons() async {
+    try {
+      final exits = await _channel.invokeListMethod<Map>('getExitReasons');
+      return [
+        for (final exit in exits ?? const <Map>[])
+          [
+            '${exit['time']}  ${exit['reason']}'
+                '${exit['description'] == null ? '' : ' · ${exit['description']}'}',
+            if (exit['trace'] != null)
+              '    ${(exit['trace'] as String).replaceAll('\n', '\n    ')}',
+          ].join('\n'),
+      ];
+    } catch (_) {
+      return const [];
     }
   }
 

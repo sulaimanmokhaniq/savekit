@@ -275,6 +275,5 @@ final audioPlayerProvider = NotifierProvider<AudioPlayerController, PlayerView>(
 Future<void> initBackgroundAudio() => JustAudioBackground.init(
   androidNotificationChannelId: 'com.savekit.app.audio',
   androidNotificationChannelName: 'Audio playback',
-  androidNotificationOngoing: true,
   androidNotificationIcon: 'drawable/ic_stat_savekit',
 );

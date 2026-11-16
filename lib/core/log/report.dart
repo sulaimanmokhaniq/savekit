@@ -16,6 +16,7 @@ String buildReport({
   required String galleryVersion,
   required AppSettings settings,
   required List<String> events,
+  List<String> exits = const [],
   DateTime? now,
 }) {
   final buffer = StringBuffer()
@@ -35,6 +36,16 @@ String buildReport({
     ..writeln('  one-tap: ${settings.oneTap.id}')
     ..writeln('  auto update: ${settings.autoUpdate}')
     ..writeln('  language: ${settings.language.id}')
+    ..writeln()
+    ..writeln('How the app closed recently (${exits.length}):');
+  if (exits.isEmpty) {
+    buffer.writeln('  nothing recorded');
+  } else {
+    for (final exit in exits) {
+      buffer.writeln(exit);
+    }
+  }
+  buffer
     ..writeln()
     ..writeln('Recent events (${events.length}):');
   if (events.isEmpty) {
