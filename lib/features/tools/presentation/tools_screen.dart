@@ -6,6 +6,7 @@ import '../../../core/widgets/formatters.dart';
 import '../application/storage_controller.dart';
 import '../../player/audio_player_screen.dart';
 import 'converter_screen.dart';
+import 'space_saver_screen.dart';
 import 'editor_screen.dart';
 import 'stats_screen.dart';
 import 'status_saver_screen.dart';
@@ -68,6 +69,16 @@ class ToolsScreen extends ConsumerWidget {
               'Save photos and videos from statuses you have viewed.',
             ),
             onTap: () => _open(context, const StatusSaverScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.cleaning_services_outlined,
+            title: tr('Space saver'),
+            subtitle: tr(
+              'Find copies, look-alike photos and large videos anywhere on '
+              'the phone, and free the space.',
+            ),
+            onTap: () => _open(context, const SpaceSaverScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(

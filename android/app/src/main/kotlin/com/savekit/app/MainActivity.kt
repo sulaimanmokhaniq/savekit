@@ -36,6 +36,8 @@ import java.io.File
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
+ *  - scanSpace()                                    -> photos and videos, copies, look-alikes
+ *  - spaceScanProgress(), cancelSpaceScan(), mediaPreview(uri, size)
  *
  * EventChannel `com.app.downloader/progress` streams maps of
  * `{taskId, status, progressPercent, speed, eta, ...}`; see [DownloadEngine].
@@ -413,6 +415,41 @@ class MainActivity : AudioServiceFragmentActivity() {
                         size,
                         call.argument<Boolean>("isVideo") ?: false,
                     )
+                }
+            }
+
+            "scanSpace" -> {
+                // Its own thread: a scan takes a while and must not hold up downloads.
+                Thread {
+                    try {
+                        val found = SpaceScanner.scan(applicationContext)
+                        runOnUiThread { result.success(found) }
+                    } catch (e: SecurityException) {
+                        runOnUiThread {
+                            result.error("SCAN_DENIED", "Photos and videos access is needed.", null)
+                        }
+                    } catch (e: Throwable) {
+                        runOnUiThread { result.error("SCAN_FAILED", e.message, null) }
+                    }
+                }.start()
+            }
+
+            "spaceScanProgress" -> result.success(SpaceScanner.progress())
+
+            "cancelSpaceScan" -> {
+                SpaceScanner.cancel()
+                result.success(true)
+            }
+
+            "mediaPreview" -> {
+                val uri = call.argument<String>("uri")
+                val size = call.argument<Number>("size")?.toInt() ?: 256
+                if (uri.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "mediaPreview requires a 'uri'.", null)
+                    return
+                }
+                DownloadEngine.runInBackground(result, "PREVIEW_FAILED") {
+                    SpaceScanner.preview(applicationContext, Uri.parse(uri), size)
                 }
             }
 

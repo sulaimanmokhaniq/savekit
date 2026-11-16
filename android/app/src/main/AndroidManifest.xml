@@ -19,6 +19,11 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
+    <!-- Space saver: looking through the phone's photos and videos for copies,
+         look-alikes and large videos. Asked for only when that tool is opened. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+
     <!-- extractNativeLibs lets Android unpack the bundled Python, FFmpeg and aria2c
          binaries (.so) into nativeLibraryDir, the only place an app may execute from. -->
     <application

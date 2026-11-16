@@ -10,7 +10,8 @@ import java.util.regex.Pattern
  *
  *  - `split`    cut into parts of `seconds` each (for WhatsApp Status)
  *  - `vertical` crop the middle to 9:16
- *  - `compress` re-encode to about `targetMb` megabytes (needs `duration`)
+ *  - `compress` re-encode to about `targetMb` megabytes (needs `duration`), optionally
+ *               with the picture's shorter side reduced to `shortSide` pixels
  *  - `gif`      turn `length` seconds from `start` into an animated GIF
  *  - `frame`    save the picture at `at` seconds as a JPEG
  *
@@ -72,9 +73,22 @@ object EditorEngine {
                     // Leave room for 96 kbps audio and a little container overhead.
                     val totalKbps = targetMb * 8 * 1024 * 0.95 / duration
                     val videoKbps = (totalKbps - 96).toInt().coerceAtLeast(150)
+                    // Optionally shrink the picture so its shorter side is at most
+                    // `shortSide` pixels; never enlarges.
+                    val shortSide = options["shortSide"]?.toIntOrNull()
+                    val filters = if (shortSide == null) {
+                        emptyList()
+                    } else {
+                        listOf(
+                            "-vf",
+                            "scale=if(gt(iw\\,ih)\\,-2\\,min(iw\\,$shortSide)):" +
+                                "if(gt(iw\\,ih)\\,min(ih\\,$shortSide)\\,-2)",
+                        )
+                    }
                     encodeVideo(
                         context, taskId, input, File(work, "$base small.mp4"),
-                        emptyList(),
+                        // Keep the recording date, so the Gallery files it where it was.
+                        filters + listOf("-map_metadata", "0"),
                         quality = listOf(
                             "-b:v", "${videoKbps}k",
                             "-maxrate", "${videoKbps}k",
