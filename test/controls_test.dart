@@ -22,7 +22,7 @@ import 'package:savekit/features/tools/application/storage_controller.dart';
 
 import 'support/fakes.dart';
 
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 60));
 
 /// Answers each link from a table; unknown links fail.
 class TableExtractor implements MediaExtractor {

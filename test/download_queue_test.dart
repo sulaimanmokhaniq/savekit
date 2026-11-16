@@ -165,7 +165,7 @@ MediaInfo info(String name, {MediaFormat? gallery}) => MediaInfo(
 );
 
 /// Lets queued microtasks and timers of the controller run.
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 60));
 
 void main() {
   late FakeNative native;
