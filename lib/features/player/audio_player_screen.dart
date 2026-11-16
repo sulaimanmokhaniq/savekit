@@ -238,15 +238,7 @@ class _NowPlaying extends StatelessWidget {
               final max = length.inMilliseconds.toDouble();
               return Column(
                 children: [
-                  Slider(
-                    value: max <= 0
-                        ? 0
-                        : position.inMilliseconds.clamp(0, max).toDouble(),
-                    max: max <= 0 ? 1 : max,
-                    onChanged: max <= 0
-                        ? null
-                        : (ms) => onSeek(Duration(milliseconds: ms.round())),
-                  ),
+                  _SeekBar(position: position, max: max, onSeek: onSeek),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
@@ -331,6 +323,48 @@ class _NowPlaying extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The position slider. Dragging only moves the handle; the player jumps once,
+/// when the finger lifts, instead of seeking on every movement.
+class _SeekBar extends StatefulWidget {
+  const _SeekBar({
+    required this.position,
+    required this.max,
+    required this.onSeek,
+  });
+
+  final Duration position;
+  final double max;
+  final void Function(Duration position) onSeek;
+
+  @override
+  State<_SeekBar> createState() => _SeekBarState();
+}
+
+class _SeekBarState extends State<_SeekBar> {
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    final max = widget.max;
+    final value =
+        _dragging ??
+        (max <= 0
+            ? 0.0
+            : widget.position.inMilliseconds.clamp(0, max).toDouble());
+    return Slider(
+      value: value.clamp(0, max <= 0 ? 1 : max).toDouble(),
+      max: max <= 0 ? 1 : max,
+      onChanged: max <= 0 ? null : (ms) => setState(() => _dragging = ms),
+      onChangeEnd: max <= 0
+          ? null
+          : (ms) {
+              setState(() => _dragging = null);
+              widget.onSeek(Duration(milliseconds: ms.round()));
+            },
     );
   }
 }

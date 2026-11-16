@@ -102,6 +102,12 @@ class AudioPlayerController extends Notifier<PlayerView> {
   AudioPlayer? _player;
   Timer? _saveTimer;
   Timer? _sleepTimer;
+
+  /// The file the player is on, as last handled. just_audio reports the
+  /// current index again on every playback event (each seek included), so
+  /// only a real change of file may act on it: seeking on every report
+  /// seeks forever and freezes the app.
+  int? _handledIndex;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   /// Positions this close to either end start the file from the beginning.
@@ -120,7 +126,8 @@ class AudioPlayerController extends Notifier<PlayerView> {
       )
       ..add(
         created.currentIndexStream.listen((index) {
-          _savePosition();
+          if (index == null || index == _handledIndex) return;
+          _handledIndex = index;
           _update(index: index);
           _resumeCurrent();
         }),
@@ -165,6 +172,10 @@ class AudioPlayerController extends Notifier<PlayerView> {
     final wanted = tracks[startAt.clamp(0, tracks.length - 1)];
     final index = existing.indexWhere((t) => t.path == wanted.path);
 
+    // Keep the place in whatever was playing before.
+    _savePosition();
+    // The first file starts at its saved place through initialPosition.
+    _handledIndex = index < 0 ? 0 : index;
     state = PlayerView(
       tracks: existing,
       index: index < 0 ? 0 : index,
@@ -231,12 +242,21 @@ class AudioPlayerController extends Notifier<PlayerView> {
     _savePosition();
     _sleepTimer?.cancel();
     await _player?.stop();
+    _handledIndex = null;
     if (!ref.mounted) return;
     state = PlayerView(speed: state.speed);
   }
 
-  Future<void> next() => player.seekToNext();
-  Future<void> previous() => player.seekToPrevious();
+  Future<void> next() {
+    _savePosition();
+    return player.seekToNext();
+  }
+
+  Future<void> previous() {
+    _savePosition();
+    return player.seekToPrevious();
+  }
+
   Future<void> seek(Duration position) => player.seek(position);
 
   /// Jumps [seconds] forwards or, when negative, backwards.
