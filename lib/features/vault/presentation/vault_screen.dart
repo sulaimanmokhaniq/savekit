@@ -1,3 +1,5 @@
+import 'feed_screen.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
@@ -277,6 +279,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               icon: const Icon(Icons.delete_outline_rounded),
             ),
           ] else if (all.isNotEmpty) ...[
+            IconButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const FeedScreen()),
+              ),
+              tooltip: tr('Your feed'),
+              icon: const Icon(Icons.swipe_up_rounded),
+            ),
             IconButton(
               onPressed: () => setState(() {
                 _searching = !_searching;

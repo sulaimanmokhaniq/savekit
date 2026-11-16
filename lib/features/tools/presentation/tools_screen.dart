@@ -6,6 +6,7 @@ import '../../../core/widgets/formatters.dart';
 import '../application/storage_controller.dart';
 import '../../player/audio_player_screen.dart';
 import '../../transfer/transfer_screen.dart';
+import '../../vault/presentation/feed_screen.dart';
 import 'converter_screen.dart';
 import 'space_saver_screen.dart';
 import 'editor_screen.dart';
@@ -70,6 +71,16 @@ class ToolsScreen extends ConsumerWidget {
               'Save photos and videos from statuses you have viewed.',
             ),
             onTap: () => _open(context, const StatusSaverScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.swipe_up_rounded,
+            title: tr('Your feed'),
+            subtitle: tr(
+              'Swipe through your saved videos and photos, one per screen. '
+              'No internet, no ads.',
+            ),
+            onTap: () => _open(context, const FeedScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(
