@@ -770,8 +770,10 @@ void main() {
     await openTab(tester, 'Tools');
     expect(find.text('Video to audio'), findsOneWidget);
     expect(find.text('WhatsApp statuses'), findsOneWidget);
-    expect(find.textContaining('212 MB used · 5 files'), findsOneWidget);
     await shoot(tester, '10_tools');
+    // The list of tools is longer than the screen.
+    await tester.scrollUntilVisible(find.text('Storage'), 200);
+    expect(find.textContaining('212 MB used · 5 files'), findsOneWidget);
 
     await tester.tap(find.text('Storage'));
     await settle(tester);

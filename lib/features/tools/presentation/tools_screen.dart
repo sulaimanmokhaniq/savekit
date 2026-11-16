@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/formatters.dart';
 import '../application/storage_controller.dart';
 import '../../player/audio_player_screen.dart';
+import '../../transfer/transfer_screen.dart';
 import 'converter_screen.dart';
 import 'space_saver_screen.dart';
 import 'editor_screen.dart';
@@ -79,6 +80,16 @@ class ToolsScreen extends ConsumerWidget {
               'the phone, and free the space.',
             ),
             onTap: () => _open(context, const SpaceSaverScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.wifi_tethering_rounded,
+            title: tr('Wireless transfer'),
+            subtitle: tr(
+              'Open the Vault in a computer’s browser over Wi-Fi: download '
+              'from it or send files to it, no cable.',
+            ),
+            onTap: () => _open(context, const TransferScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(

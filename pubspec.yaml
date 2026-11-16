@@ -37,6 +37,7 @@ dependencies:
   cupertino_ui: ^1.1.6
   just_audio: ^0.10.6
   audio_service: ^0.18.19
+  qr: ^4.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

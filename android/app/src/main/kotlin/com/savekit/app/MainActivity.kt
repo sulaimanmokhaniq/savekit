@@ -36,6 +36,7 @@ import java.io.File
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
+ *  - keepScreenOn(on)                               keeps the display awake while on
  *  - scanSpace()                                    -> photos and videos, copies, look-alikes
  *  - spaceScanProgress(), cancelSpaceScan(), mediaPreview(uri, size)
  *
@@ -416,6 +417,14 @@ class MainActivity : AudioServiceFragmentActivity() {
                         call.argument<Boolean>("isVideo") ?: false,
                     )
                 }
+            }
+
+            "keepScreenOn" -> {
+                // While files are being transferred over Wi-Fi the phone must stay awake.
+                val on = call.argument<Boolean>("on") ?: false
+                val flag = android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                if (on) window.addFlags(flag) else window.clearFlags(flag)
+                result.success(true)
             }
 
             "scanSpace" -> {
