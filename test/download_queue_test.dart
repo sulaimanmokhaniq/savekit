@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:savekit/core/device/device_service.dart';
 import 'package:savekit/core/native/youtube_dl_native_service.dart';
 import 'package:savekit/core/network/connectivity_service.dart';
 import 'package:savekit/core/platform/media_platform.dart';
@@ -181,6 +182,7 @@ void main() {
     final created = ProviderContainer(
       overrides: [
         nativeServiceProvider.overrideWithValue(native),
+        chargingProvider.overrideWith((ref) => Stream.value(false)),
         connectivityServiceProvider.overrideWithValue(connectivity),
         settingsRepositoryProvider.overrideWithValue(
           InMemorySettingsRepository(settings),
