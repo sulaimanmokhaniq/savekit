@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/device/device_service.dart';
 import '../../../core/engine/engine_controller.dart';
+import '../../../core/log/app_log.dart';
+import '../../../core/log/report.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/platform_badge.dart';
@@ -15,6 +18,25 @@ import '../../../core/l10n/l10n.dart';
 /// Settings & Platform Logins: account cards and the extractor versions.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  Future<void> _sendReport(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final engine = ref.read(engineControllerProvider).value;
+    final report = buildReport(
+      app: await ref.read(appInfoProvider.future),
+      engineVersion: engine?.version ?? 'not ready',
+      galleryVersion: engine?.galleryVersion ?? 'not ready',
+      settings: ref.read(settingsControllerProvider),
+      events: AppLog.lines,
+    );
+    try {
+      await shareReport(report);
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(tr('The report could not be shared.'))),
+      );
+    }
+  }
 
   Future<void> _login(
     BuildContext context,
@@ -258,8 +280,33 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 18),
+          _SectionTitle(tr('HELP')),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                Icons.bug_report_outlined,
+                color: AppColors.textMuted,
+              ),
+              title: Text(tr('Send a report')),
+              subtitle: Text(
+                tr(
+                  'Shares the app version and recent errors so a problem can '
+                  'be fixed. No passwords or files are included.',
+                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+              onTap: () => _sendReport(context, ref),
+            ),
+          ),
+          const SizedBox(height: 18),
           Text(
             tr('Only download media you have the right to save.'),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'SaveKit ${ref.watch(appInfoProvider).value?.version ?? ''}',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),

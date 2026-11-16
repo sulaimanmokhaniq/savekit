@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/formatters.dart';
 import '../application/storage_controller.dart';
 import 'converter_screen.dart';
+import 'editor_screen.dart';
+import 'stats_screen.dart';
 import 'status_saver_screen.dart';
 import 'storage_screen.dart';
 import '../../../core/l10n/l10n.dart';
@@ -39,6 +41,16 @@ class ToolsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _ToolCard(
+            icon: Icons.movie_edit,
+            title: tr('Edit video'),
+            subtitle: tr(
+              'Split for WhatsApp Status, make vertical, make smaller, '
+              'make a GIF or save a photo.',
+            ),
+            onTap: () => _open(context, const EditorScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
             icon: Icons.chat_bubble_outline_rounded,
             title: tr('WhatsApp statuses'),
             subtitle: tr(
@@ -52,6 +64,13 @@ class ToolsScreen extends ConsumerWidget {
             title: tr('Storage'),
             subtitle: used,
             onTap: () => _open(context, const StorageScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.insights_outlined,
+            title: tr('Your stats'),
+            subtitle: tr('How much you saved, from where, and when.'),
+            onTap: () => _open(context, const StatsScreen()),
           ),
         ],
       ),

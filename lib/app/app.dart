@@ -7,6 +7,7 @@ import '../core/l10n/l10n.dart';
 import '../core/l10n/material_localizations_ar.dart';
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
+import '../features/onboarding/welcome_screen.dart';
 import 'home_shell.dart';
 
 class SaveKitApp extends ConsumerStatefulWidget {
@@ -91,6 +92,9 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
       settingsControllerProvider.select((settings) => settings.language),
       (_, language) => _applyLanguage(language),
     );
+    final onboarded = ref.watch(
+      settingsControllerProvider.select((settings) => settings.onboarded),
+    );
 
     return MaterialApp(
       title: 'SaveKit',
@@ -105,7 +109,7 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
       ],
       // Colours switch at once rather than fading through mixed states.
       themeAnimationDuration: Duration.zero,
-      home: const HomeShell(),
+      home: onboarded ? const HomeShell() : const WelcomeScreen(),
     );
   }
 }

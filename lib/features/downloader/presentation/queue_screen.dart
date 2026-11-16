@@ -219,7 +219,32 @@ class _TaskCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              _ProgressLine(task: task),
+              if (task.tonight && task.status == DownloadStatus.queued)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.bedtime_outlined,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tr('Waits until the phone is charging on Wi-Fi'),
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => controller.startNow(task.id),
+                      child: Text(tr('Start now')),
+                    ),
+                  ],
+                )
+              else
+                _ProgressLine(task: task),
             ] else ...[
               Row(
                 children: [

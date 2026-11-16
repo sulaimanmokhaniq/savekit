@@ -25,7 +25,12 @@ enum DownloadEngineKind {
 
   /// FFmpeg conversion of a video already on the phone into audio. Needs no
   /// network; the task's `url` is the video's file path.
-  convert('convert');
+  convert('convert'),
+
+  /// FFmpeg edit of a video already on the phone (split, crop, compress,
+  /// GIF, frame). Needs no network; `url` is the video's file path,
+  /// `formatSelection` names the edit and `options` holds its settings.
+  edit('edit');
 
   const DownloadEngineKind(this.id);
   final String id;
@@ -58,6 +63,7 @@ class MediaFormat {
     this.clipEnd,
     this.subtitleLanguage,
     this.autoSubtitles = false,
+    this.options = const {},
   });
 
   final String id;
@@ -104,6 +110,9 @@ class MediaFormat {
   /// The subtitles are machine-made captions, not ones the uploader wrote.
   final bool autoSubtitles;
 
+  /// Settings of a local edit ([DownloadEngineKind.edit]).
+  final Map<String, String> options;
+
   bool get isClipped => clipStart != null || clipEnd != null;
 
   /// This option with a section to cut and subtitles to embed.
@@ -138,7 +147,10 @@ class MediaFormat {
 
   bool get isAudio => kind == MediaFormatKind.audio;
   bool get isGallery => kind == MediaFormatKind.gallery;
-  bool get isConversion => engine == DownloadEngineKind.convert;
+
+  /// Works on a file already on the phone, so needs no network.
+  bool get isConversion =>
+      engine == DownloadEngineKind.convert || engine == DownloadEngineKind.edit;
 
   factory MediaFormat.fromMap(Map<String, dynamic> map) {
     return MediaFormat(
@@ -164,6 +176,11 @@ class MediaFormat {
       clipEnd: (map['clipEnd'] as num?)?.toInt(),
       subtitleLanguage: map['subtitleLanguage'] as String?,
       autoSubtitles: map['autoSubtitles'] as bool? ?? false,
+      options: {
+        for (final entry in (map['options'] as Map? ?? const {}).entries)
+          if (entry.key is String && entry.value != null)
+            entry.key as String: entry.value.toString(),
+      },
     );
   }
 
@@ -188,5 +205,6 @@ class MediaFormat {
     'clipEnd': clipEnd,
     'subtitleLanguage': subtitleLanguage,
     'autoSubtitles': autoSubtitles,
+    'options': options,
   };
 }

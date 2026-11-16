@@ -7,7 +7,9 @@ import 'package:savekit/core/native/device_files_service.dart';
 import 'package:savekit/core/native/youtube_dl_native_service.dart';
 import 'package:savekit/core/network/connectivity_service.dart';
 import 'package:savekit/core/platform/media_platform.dart';
+import 'package:savekit/core/device/device_service.dart';
 import 'package:savekit/core/providers.dart';
+import 'package:savekit/features/updates/update_checker.dart';
 import 'package:savekit/core/settings/app_settings.dart';
 import 'package:savekit/core/storage/app_paths.dart';
 import 'package:savekit/features/cookies/data/cookie_export_service.dart';
@@ -230,6 +232,49 @@ class UiFakeDeviceFiles implements DeviceFilesService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeDevice implements DeviceService {
+  FakeDevice({this.version = '1.0.15', this.abi = 'arm64-v8a'});
+
+  final String version;
+  final String abi;
+  final opened = <String>[];
+
+  @override
+  Future<AppInfo> appInfo() async => AppInfo(
+    version: version,
+    android: '15',
+    sdk: 35,
+    device: 'Test Phone',
+    abi: abi,
+  );
+
+  @override
+  Future<bool> isCharging() async => false;
+
+  @override
+  Future<bool> openUrl(String url) async {
+    opened.add(url);
+    return true;
+  }
+}
+
+/// A charger the test plugs in and out.
+class FakeCharging {
+  FakeCharging({bool charging = false}) : _last = charging;
+
+  final _controller = StreamController<bool>.broadcast(sync: true);
+  late final Stream<bool> stream = () async* {
+    yield _last;
+    yield* _controller.stream;
+  }();
+  bool _last;
+
+  void set(bool charging) {
+    _last = charging;
+    _controller.add(charging);
+  }
 }
 
 class UiFakePaths implements AppPaths {
@@ -468,6 +513,7 @@ List<Override> uiOverrides({
   required UiFakeNative native,
   Object? extraction,
   List<DownloadTask> tasks = const [],
+  FakeCharging? charging,
   Set<PlatformAccount> signedIn = const {},
   String? clipboard,
   UiFakeShareSource? shareSource,
@@ -486,7 +532,16 @@ List<Override> uiOverrides({
   /// Tests of the app's screens start with automatic updates off, so the
   /// engine versions they show are the ones the fake starts with.
   bool allowAutoUpdate = false,
+
+  /// Show the welcome screens, as on a first launch.
+  bool firstLaunch = false,
+  FakeDevice? device,
+  Map<String, dynamic>? latestRelease,
 }) => [
+  deviceServiceProvider.overrideWithValue(device ?? FakeDevice()),
+  // The real one checks every minute, which tests cannot wait for.
+  chargingProvider.overrideWith((ref) => (charging ?? FakeCharging()).stream),
+  releaseFetcherProvider.overrideWithValue(() async => latestRelease),
   launcherIconProvider.overrideWithValue(
     (themeId) async => iconChanges?.add(themeId),
   ),
@@ -499,7 +554,8 @@ List<Override> uiOverrides({
     storageSnapshotProvider.overrideWith((ref) async => storage),
   settingsRepositoryProvider.overrideWithValue(
     InMemorySettingsRepository(
-      allowAutoUpdate ? settings : settings.copyWith(autoUpdate: false),
+      (allowAutoUpdate ? settings : settings.copyWith(autoUpdate: false))
+          .copyWith(onboarded: !firstLaunch),
     ),
   ),
   connectivityServiceProvider.overrideWithValue(

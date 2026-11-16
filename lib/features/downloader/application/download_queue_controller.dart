@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/device/device_service.dart';
 import '../../../core/log/app_log.dart';
 import '../../../core/native/youtube_dl_native_service.dart';
 import '../../../core/platform/media_platform.dart';
@@ -62,6 +63,11 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       _onConditionsChanged();
     });
     ref.listen(settingsControllerProvider, (_, _) => _onConditionsChanged());
+    _charging = ref.read(chargingProvider).value ?? false;
+    ref.listen(chargingProvider, (_, next) {
+      _charging = next.value ?? false;
+      _onConditionsChanged();
+    });
 
     // A task stored as running belongs to a previous launch. Queue it again:
     // if its process is in fact still alive the engine says so and its
@@ -111,11 +117,16 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       kind == MediaFormatKind.noWatermark ? MediaFormatKind.video : kind;
 
   /// Adds a download of [format] for the media in [info] and returns its id.
-  String enqueue(MediaInfo info, MediaFormat format) {
+  /// With [tonight], it waits until the phone is charging and on Wi-Fi.
+  String enqueue(MediaInfo info, MediaFormat format, {bool tonight = false}) {
     final id =
         '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
         '${_random.nextInt(1 << 20).toRadixString(36)}';
-    final task = DownloadTask.create(id: id, info: info, format: format);
+    final task = DownloadTask.create(
+      id: id,
+      info: info,
+      format: format,
+    ).copyWith(tonight: tonight);
     state = [task, ...state];
     unawaited(_repository.save(task));
 
@@ -255,12 +266,33 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     if (!stopping) _stopping.remove(id);
   }
 
+  bool _charging = false;
+
+  /// Night downloads may run: charging, and on Wi-Fi.
+  bool get _nightReady => _charging && _onWifi;
+
+  /// Starts a night download straight away instead of waiting.
+  void startNow(String id) {
+    final task = _find(id);
+    if (task == null || !task.tonight) return;
+    _replace(task.copyWith(tonight: false));
+    unawaited(_pump());
+  }
+
   bool get _blockedByWifi =>
       ref.read(settingsControllerProvider).wifiOnly && !_onWifi;
 
-  /// Wi-Fi came or went, or a download setting changed.
+  /// Wi-Fi or charging came or went, or a download setting changed.
   void _onConditionsChanged() {
     if (!ref.mounted) return;
+    if (!_nightReady) {
+      // Unplugged or off Wi-Fi: night downloads go back to waiting.
+      for (final task in [...state]) {
+        if (task.tonight && task.status.isRunning) {
+          unawaited(_halt(task, DownloadStatus.queued));
+        }
+      }
+    }
     if (_blockedByWifi) {
       // Running downloads go back to waiting rather than use mobile data.
       for (final task in [...state]) {
@@ -430,7 +462,8 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
                     task.status == DownloadStatus.queued &&
                     !_starting.contains(task.id) &&
                     !_stopping.contains(task.id) &&
-                    (!offlineOnly || task.format.isConversion),
+                    (!offlineOnly || task.format.isConversion) &&
+                    (!task.tonight || _nightReady),
               )
               .firstOrNull;
           if (next == null) break;
@@ -462,6 +495,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       final current = _find(id);
       if (current == null || current.status != DownloadStatus.queued) return;
       if (_blockedByWifi && !task.format.isConversion) return;
+      if (current.tonight && !_nightReady) return;
       _replace(current.copyWith(status: DownloadStatus.starting));
       _syncService(force: true);
 

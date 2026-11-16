@@ -18,6 +18,7 @@ class DownloadTask {
     this.thumbnail,
     this.duration,
     this.mediaId,
+    this.tonight = false,
     this.status = DownloadStatus.queued,
     this.progressPercent = 0,
     this.speed = '',
@@ -65,6 +66,9 @@ class DownloadTask {
 
   /// The platform's own id for the media, used to spot a repeat download.
   final String? mediaId;
+
+  /// Waits until the phone is charging and on Wi-Fi before starting.
+  final bool tonight;
 
   final DownloadStatus status;
   final double progressPercent;
@@ -119,6 +123,7 @@ class DownloadTask {
     DateTime? completedAt,
     bool? savedToGallery,
     Map<String, String>? exported,
+    bool? tonight,
   }) {
     return DownloadTask(
       id: id,
@@ -131,6 +136,7 @@ class DownloadTask {
       thumbnail: thumbnail,
       duration: duration,
       mediaId: mediaId,
+      tonight: tonight ?? this.tonight,
       status: status ?? this.status,
       progressPercent: progressPercent ?? this.progressPercent,
       speed: speed ?? this.speed,
@@ -155,6 +161,7 @@ class DownloadTask {
     'thumbnail': thumbnail,
     'duration': duration,
     'mediaId': mediaId,
+    'tonight': tonight,
     'status': status.name,
     'progressPercent': progressPercent,
     'speed': speed,
@@ -185,6 +192,7 @@ class DownloadTask {
       thumbnail: map['thumbnail'] as String?,
       duration: (map['duration'] as num?)?.toInt(),
       mediaId: map['mediaId'] as String?,
+      tonight: map['tonight'] as bool? ?? false,
       status: DownloadStatus.fromName(map['status'] as String?),
       progressPercent: (map['progressPercent'] as num?)?.toDouble() ?? 0,
       speed: map['speed'] as String? ?? '',

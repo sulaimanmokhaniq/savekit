@@ -12,6 +12,7 @@ import '../../downloader/application/download_queue_controller.dart';
 import '../../downloader/data/gallery_export_service.dart';
 import '../../downloader/domain/download_task.dart';
 import '../../tools/presentation/converter_screen.dart';
+import '../../tools/presentation/editor_screen.dart';
 import '../application/vault_lock.dart';
 import 'media_viewer_screen.dart';
 import '../../../core/l10n/l10n.dart';
@@ -118,6 +119,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
     if (mounted) setState(() => _selected.removeAll(tasks.map((t) => t.id)));
     return true;
+  }
+
+  void _editVideo(DownloadTask task) {
+    final video = task.filePaths.firstWhere(
+      (path) => savedFileKindOf(path) == SavedFileKind.video,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EditorScreen(path: video, title: task.title),
+      ),
+    );
   }
 
   void _convert(DownloadTask task) {
@@ -398,6 +410,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             onDelete: () => _delete([task]),
             onSelect: () => _toggle(task),
             onConvert: canConvert ? () => _convert(task) : null,
+            onEdit: canConvert ? () => _editVideo(task) : null,
           );
     return grid
         ? _GridTile(
@@ -499,6 +512,7 @@ class _Menu extends StatelessWidget {
     required this.onDelete,
     required this.onSelect,
     this.onConvert,
+    this.onEdit,
   });
 
   final VoidCallback onShare;
@@ -507,6 +521,9 @@ class _Menu extends StatelessWidget {
 
   /// Null when the download has no video to convert.
   final VoidCallback? onConvert;
+
+  /// Null when the download has no video to edit.
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -541,6 +558,7 @@ class _Menu extends StatelessWidget {
         'share' => onShare(),
         'select' => onSelect(),
         'convert' => onConvert?.call(),
+        'edit' => onEdit?.call(),
         _ => onDelete(),
       },
       itemBuilder: (_) => [
@@ -548,6 +566,7 @@ class _Menu extends StatelessWidget {
         item('select', Icons.check_circle_outline_rounded, tr('Select')),
         if (onConvert != null)
           item('convert', Icons.graphic_eq_rounded, tr('Convert to audio')),
+        if (onEdit != null) item('edit', Icons.movie_edit, tr('Edit video')),
         item(
           'delete',
           Icons.delete_outline_rounded,

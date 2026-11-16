@@ -62,6 +62,8 @@ object DownloadEngine {
         val subtitleLanguage: String? = null,
         /** Take the machine-made captions rather than uploaded subtitles. */
         val autoSubtitles: Boolean = false,
+        /** Settings of a local edit, for [ENGINE_EDIT]. */
+        val options: Map<String, String> = emptyMap(),
     )
 
     const val ENGINE_YTDLP = "ytdlp"
@@ -69,6 +71,12 @@ object DownloadEngine {
 
     /** Local video-to-audio conversion; the task's `url` is the video's file path. */
     const val ENGINE_CONVERT = "convert"
+
+    /**
+     * Local video edit; `url` is the video's file path, `formatSelection` names the edit
+     * and `options` holds its settings. See [EditorEngine].
+     */
+    const val ENGINE_EDIT = "edit"
 
     private const val TAG = "SaveKitEngine"
 
@@ -545,7 +553,8 @@ object DownloadEngine {
         if (!activeTasks.contains(taskId)) return false
         canceledTasks.add(taskId)
         return try {
-            ConverterEngine.cancel(taskId) || GalleryEngine.cancel(taskId) ||
+            ConverterEngine.cancel(taskId) || EditorEngine.cancel(taskId) ||
+                GalleryEngine.cancel(taskId) ||
                 YoutubeDL.getInstance().destroyProcessById(taskId)
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to destroy process $taskId", e)
@@ -573,6 +582,22 @@ object DownloadEngine {
             if (request.engine == ENGINE_CONVERT) {
                 val file = convertToAudio(request, outputDir)
                 emit(completedEvent(taskId, listOf(file)))
+                return
+            }
+
+            if (request.engine == ENGINE_EDIT) {
+                var lastEmit = 0L
+                val files = EditorEngine.edit(
+                    appContext, taskId, File(request.url), outputDir,
+                    request.formatSelection, request.options,
+                ) { percent ->
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                        lastEmit = now
+                        emit(progressEvent(taskId, STATUS_DOWNLOADING, percent, "", -1))
+                    }
+                }
+                emit(completedEvent(taskId, files))
                 return
             }
 
@@ -640,7 +665,8 @@ object DownloadEngine {
             emit(completedEvent(taskId, files))
         } catch (e: Throwable) {
             if (e is YoutubeDL.CanceledException || e is GalleryEngine.CanceledException ||
-                e is ConverterEngine.CanceledException || canceledTasks.contains(taskId)
+                e is ConverterEngine.CanceledException ||
+                e is EditorEngine.CanceledException || canceledTasks.contains(taskId)
             ) {
                 emit(progressEvent(taskId, STATUS_CANCELED, progress.lastPercent, "", -1))
             } else {

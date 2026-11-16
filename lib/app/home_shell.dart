@@ -46,6 +46,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   void _select(int index) => ref.read(shellTabProvider.notifier).select(index);
 
+  @override
+  void initState() {
+    super.initState();
+    // A link shared while the welcome screens were up is waiting already.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final shared = ref.read(incomingLinkControllerProvider).shared;
+      if (shared != null) _handleShared(shared);
+    });
+  }
+
   Future<void> _openPicker(String url) async {
     if (_pickerOpen) return;
     _pickerOpen = true;

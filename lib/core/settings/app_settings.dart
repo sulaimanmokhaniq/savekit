@@ -84,6 +84,7 @@ class AppSettings {
     this.lastEngineUpdate,
     this.saveLocation = SaveLocation.gallery,
     this.language = AppLanguage.system,
+    this.onboarded = false,
   });
 
   /// Id of the selected [AppPalette].
@@ -125,6 +126,9 @@ class AppSettings {
   /// Language of the app's own text.
   final AppLanguage language;
 
+  /// The welcome screens have been seen.
+  final bool onboarded;
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -142,6 +146,7 @@ class AppSettings {
     DateTime? lastEngineUpdate,
     SaveLocation? saveLocation,
     AppLanguage? language,
+    bool? onboarded,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     iconId: iconId ?? this.iconId,
@@ -158,6 +163,7 @@ class AppSettings {
     lastEngineUpdate: lastEngineUpdate ?? this.lastEngineUpdate,
     saveLocation: saveLocation ?? this.saveLocation,
     language: language ?? this.language,
+    onboarded: onboarded ?? this.onboarded,
   );
 
   Map<String, dynamic> toMap() => {
@@ -173,6 +179,7 @@ class AppSettings {
     'lastEngineUpdate': lastEngineUpdate?.millisecondsSinceEpoch,
     'saveLocation': saveLocation.id,
     'language': language.id,
+    'onboarded': onboarded,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -198,6 +205,9 @@ class AppSettings {
         : null,
     saveLocation: SaveLocation.fromId(map['saveLocation'] as String?),
     language: AppLanguage.fromId(map['language'] as String?),
+    // Anyone with saved settings from before the welcome screens existed
+    // has used the app already.
+    onboarded: map['onboarded'] as bool? ?? true,
   );
 }
 
@@ -299,6 +309,7 @@ class SettingsController extends Notifier<AppSettings> {
   void setVaultSort(VaultSort value) => _set(state.copyWith(vaultSort: value));
   void setVaultGrid(bool value) => _set(state.copyWith(vaultGrid: value));
   void setLanguage(AppLanguage value) => _set(state.copyWith(language: value));
+  void finishOnboarding() => _set(state.copyWith(onboarded: true));
   void setSaveLocation(SaveLocation value) =>
       _set(state.copyWith(saveLocation: value));
   void setAutoUpdate(bool value) => _set(state.copyWith(autoUpdate: value));

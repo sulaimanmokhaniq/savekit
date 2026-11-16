@@ -218,7 +218,8 @@ class _PickerState extends ConsumerState<_Picker> {
 
   bool get _canAddSubtitles => _tab == _Tab.video && info.hasSubtitles;
 
-  Future<void> _download() async {
+  /// With [tonight], the download waits until the phone is charging on Wi-Fi.
+  Future<void> _download({bool tonight = false}) async {
     final clip = _canTrim ? _clip : null;
     final subtitles = _canAddSubtitles ? _subtitles : null;
     var format = _selected;
@@ -264,7 +265,7 @@ class _PickerState extends ConsumerState<_Picker> {
       }
       if (choice != 'again') return;
     }
-    queue.enqueue(info, format);
+    queue.enqueue(info, format, tonight: tonight);
     Navigator.of(context).pop(FormatPickerResult.queued);
   }
 
@@ -353,6 +354,12 @@ class _PickerState extends ConsumerState<_Picker> {
                 ? tr('Download')
                 : tr('Download · about $size'),
           ),
+        ),
+        const SizedBox(height: 6),
+        TextButton.icon(
+          onPressed: () => _download(tonight: true),
+          icon: const Icon(Icons.bedtime_outlined, size: 18),
+          label: Text(tr('Download tonight · when charging on Wi-Fi')),
         ),
       ],
     );

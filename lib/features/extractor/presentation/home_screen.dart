@@ -2,7 +2,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/device/device_service.dart';
 import '../../../core/engine/engine_controller.dart';
+import '../../updates/update_checker.dart';
 import '../../../core/platform/media_platform.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/platform_badge.dart';
@@ -87,6 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final updating = engine.value?.isUpdating ?? false;
     final batch = ref.watch(batchControllerProvider);
+    final update = ref.watch(appUpdateProvider).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -194,6 +197,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ref.read(batchControllerProvider.notifier).removeFailure(url);
                 widget.onFetch(url);
               },
+            ),
+          ],
+          if (update != null) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  Icons.system_update_rounded,
+                  color: AppColors.accent,
+                ),
+                title: Text(tr('SaveKit ${update.version} is available')),
+                subtitle: Text(
+                  tr('Download it and open the file to update.'),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                ),
+                trailing: FilledButton(
+                  onPressed: () =>
+                      ref.read(deviceServiceProvider).openUrl(update.apkUrl),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                  child: Text(tr('Update')),
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 14),

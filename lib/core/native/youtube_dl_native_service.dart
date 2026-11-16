@@ -280,6 +280,7 @@ class YoutubeDlNativeService {
         'clipEnd': format.clipEnd,
         'subtitleLanguage': format.subtitleLanguage,
         'autoSubtitles': format.autoSubtitles,
+        'options': format.options,
       }),
     );
   }

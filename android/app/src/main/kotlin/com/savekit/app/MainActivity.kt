@@ -28,6 +28,9 @@ import java.io.File
  *  - notifyDownloadFinished(taskId, title, success)
  *  - exportToMediaStore(path, kind)                 -> address of the gallery copy
  *  - deleteFromMediaStore(locations, names)         -> true when every copy is gone
+ *  - getAppInfo()                                   -> {version, android, sdk, device, abi}
+ *  - isCharging()                                   -> whether the phone is charging
+ *  - openUrl(url)                                   opens an https address in the browser
  *  - setLauncherIcon(theme)                          home-screen icon follows the theme
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
@@ -261,6 +264,10 @@ class MainActivity : FlutterFragmentActivity() {
                         subtitleLanguage = call.argument<String>("subtitleLanguage")
                             ?.trim()?.ifEmpty { null },
                         autoSubtitles = call.argument<Boolean>("autoSubtitles") ?: false,
+                        options = call.argument<Map<String, Any?>>("options")
+                            ?.mapNotNull { (key, value) -> value?.let { key to it.toString() } }
+                            ?.toMap()
+                            .orEmpty(),
                     ),
                     result = result,
                 )
@@ -314,6 +321,46 @@ class MainActivity : FlutterFragmentActivity() {
                 names = call.argument<List<String>>("names").orEmpty(),
                 result = result,
             )
+
+            "getAppInfo" -> {
+                val info = packageManager.getPackageInfo(packageName, 0)
+                result.success(
+                    mapOf(
+                        "version" to (info.versionName ?: ""),
+                        "android" to android.os.Build.VERSION.RELEASE,
+                        "sdk" to android.os.Build.VERSION.SDK_INT,
+                        "device" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+                        "abi" to (android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: ""),
+                    ),
+                )
+            }
+
+            "isCharging" -> {
+                // The battery broadcast is sticky: reading it needs no receiver.
+                val battery = registerReceiver(
+                    null,
+                    android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                )
+                val status = battery?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                result.success(
+                    status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == android.os.BatteryManager.BATTERY_STATUS_FULL,
+                )
+            }
+
+            "openUrl" -> {
+                val url = call.argument<String>("url")
+                if (url.isNullOrEmpty() || !url.startsWith("https://")) {
+                    result.error(ERROR_BAD_ARGS, "openUrl requires an https 'url'.", null)
+                    return
+                }
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            }
 
             "setLauncherIcon" -> {
                 try {
