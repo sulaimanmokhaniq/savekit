@@ -36,6 +36,7 @@ import java.io.File
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
+ *  - setSplashTheme(theme)                          next launch's splash in that theme's colours
  *  - keepScreenOn(on)                               keeps the display awake while on
  *  - scanSpace()                                    -> photos and videos, copies, look-alikes
  *  - spaceScanProgress(), cancelSpaceScan(), mediaPreview(uri, size)
@@ -419,6 +420,20 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
             }
 
+            "setSplashTheme" -> {
+                // Android 13+ remembers this and draws the next launch's splash in the
+                // theme's colours; older versions keep the default splash.
+                val theme = call.argument<String>("theme").orEmpty()
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    try {
+                        splashScreen.setSplashScreenTheme(splashStyle(theme))
+                    } catch (e: Exception) {
+                        // Cosmetic; the default splash stays.
+                    }
+                }
+                result.success(true)
+            }
+
             "keepScreenOn" -> {
                 // While files are being transferred over Wi-Fi the phone must stay awake.
                 val on = call.argument<Boolean>("on") ?: false
@@ -487,6 +502,16 @@ class MainActivity : AudioServiceFragmentActivity() {
 
             else -> result.notImplemented()
         }
+    }
+
+    private fun splashStyle(theme: String): Int = when (theme) {
+        "vault" -> R.style.Splash_Vault
+        "pulse" -> R.style.Splash_Pulse
+        "tide" -> R.style.Splash_Tide
+        "classic" -> R.style.Splash_Classic
+        "rose" -> R.style.Splash_Rose
+        "gold" -> R.style.Splash_Gold
+        else -> R.style.Splash_Ember
     }
 
     companion object {

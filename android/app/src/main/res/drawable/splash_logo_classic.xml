@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash icon for the Classic theme: the SaveKit tile, drawn like the in-app logo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:scaleX="1.3043"
+        android:scaleY="1.3043"
+        android:translateX="81.39"
+        android:translateY="81.39">
+        <path
+            android:fillColor="#7C9CFF"
+            android:pathData="M26,2h44a24,24 0,0 1,24 24v44a24,24 0,0 1,-24 24h-44a24,24 0,0 1,-24 -24v-44a24,24 0,0 1,24 -24z"/>
+        <path
+            android:pathData="M48,22v30"
+            android:strokeColor="#0B1020"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"/>
+        <path
+            android:pathData="M33,41l15,15 15,-15"
+            android:strokeColor="#0B1020"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+        <path
+            android:pathData="M25,58v8a8,8 0,0 0,8 8h30a8,8 0,0 0,8 -8v-8"
+            android:strokeColor="#0B1020"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+    </group>
+</vector>

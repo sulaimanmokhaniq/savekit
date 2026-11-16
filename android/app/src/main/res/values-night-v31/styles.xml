@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 and later draw the splash themselves, from these attributes. The app
+         picks one of the themed variants below for the next launch (Android 13 and
+         later), so the splash matches the theme chosen in Settings. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_ember</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_ember</item>
+        <item name="android:windowBackground">@color/splash_background_ember</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+
+    <style name="Splash.Ember" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_ember</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_ember</item>
+        <item name="android:windowBackground">@color/splash_background_ember</item>
+    </style>
+
+    <style name="Splash.Vault" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_vault</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_vault</item>
+        <item name="android:windowBackground">@color/splash_background_vault</item>
+    </style>
+
+    <style name="Splash.Pulse" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_pulse</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_pulse</item>
+        <item name="android:windowBackground">@color/splash_background_pulse</item>
+    </style>
+
+    <style name="Splash.Tide" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_tide</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_tide</item>
+        <item name="android:windowBackground">@color/splash_background_tide</item>
+    </style>
+
+    <style name="Splash.Classic" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_classic</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_classic</item>
+        <item name="android:windowBackground">@color/splash_background_classic</item>
+    </style>
+
+    <style name="Splash.Rose" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_rose</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_rose</item>
+        <item name="android:windowBackground">@color/splash_background_rose</item>
+    </style>
+
+    <style name="Splash.Gold" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_gold</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_gold</item>
+        <item name="android:windowBackground">@color/splash_background_gold</item>
+    </style>
+</resources>

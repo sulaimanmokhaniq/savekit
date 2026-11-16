@@ -9,6 +9,7 @@ import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import '../features/onboarding/welcome_screen.dart';
 import 'home_shell.dart';
+import 'opening_splash.dart';
 
 class SaveKitApp extends ConsumerStatefulWidget {
   const SaveKitApp({super.key});
@@ -21,6 +22,9 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
     with WidgetsBindingObserver {
   late AppPalette _palette;
   late Locale _locale;
+
+  /// Whether the opening logo animation is still showing.
+  bool _opening = true;
 
   Locale _resolveLocale(AppLanguage language) =>
       language.resolve(WidgetsBinding.instance.platformDispatcher.locale);
@@ -38,6 +42,8 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
     // nothing when it already matches.
     final settings = ref.read(settingsControllerProvider);
     ref.read(launcherIconProvider)(settings.launcherIconId);
+    // And the next launch's splash with the theme.
+    ref.read(splashThemeProvider)(settings.themeId);
   }
 
   @override
@@ -110,6 +116,18 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
       // Colours switch at once rather than fading through mixed states.
       themeAnimationDuration: Duration.zero,
       home: onboarded ? const HomeShell() : const WelcomeScreen(),
+      builder: (context, child) => Stack(
+        children: [
+          ?child,
+          if (_opening)
+            Positioned.fill(
+              child: OpeningSplash(
+                palette: _palette,
+                onDone: () => setState(() => _opening = false),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

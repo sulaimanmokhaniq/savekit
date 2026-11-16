@@ -272,6 +272,19 @@ final launcherIconProvider = Provider<LauncherIconSetter>(
   },
 );
 
+/// Gives the next launch's splash screen the colours of a theme (Android 13
+/// and later; older versions keep the default splash).
+final splashThemeProvider = Provider<Future<void> Function(String themeId)>(
+  (ref) => (themeId) async {
+    try {
+      await const MethodChannel('com.app.downloader/engine')
+          .invokeMethod<void>('setSplashTheme', {'theme': themeId});
+    } catch (_) {
+      // Cosmetic.
+    }
+  },
+);
+
 /// Overridden in `main()` with the opened Hive repository.
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => InMemorySettingsRepository(),
@@ -289,6 +302,7 @@ class SettingsController extends Notifier<AppSettings> {
   void setTheme(String themeId) {
     _set(state.copyWith(themeId: themeId));
     _syncIcon();
+    ref.read(splashThemeProvider)(themeId);
   }
 
   /// [iconId] is a palette id, or [AppSettings.iconMatchesTheme].

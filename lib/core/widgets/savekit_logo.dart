@@ -5,9 +5,18 @@ import '../theme/app_theme.dart';
 /// The SaveKit mark: an arrow dropping into a tray, on a rounded-square tile
 /// in the theme's accent colour.
 class SaveKitLogo extends StatelessWidget {
-  const SaveKitLogo({super.key, this.size = 32, this.palette});
+  const SaveKitLogo({
+    super.key,
+    this.size = 32,
+    this.palette,
+    this.arrowDrop = 0,
+  });
 
   final double size;
+
+  /// How far the arrow is pushed down, in units of the 96-unit artwork; for
+  /// the opening animation.
+  final double arrowDrop;
 
   /// Colours to draw with; defaults to the active theme.
   final AppPalette? palette;
@@ -17,16 +26,17 @@ class SaveKitLogo extends StatelessWidget {
     final colors = palette ?? AppColors.current;
     return CustomPaint(
       size: Size.square(size),
-      painter: _LogoPainter(colors.accent, colors.onAccent),
+      painter: _LogoPainter(colors.accent, colors.onAccent, arrowDrop),
     );
   }
 }
 
 class _LogoPainter extends CustomPainter {
-  const _LogoPainter(this.tile, this.mark);
+  const _LogoPainter(this.tile, this.mark, [this.arrowDrop = 0]);
 
   final Color tile;
   final Color mark;
+  final double arrowDrop;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -52,11 +62,11 @@ class _LogoPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final arrow = Path()
-      ..moveTo(48, 22)
-      ..lineTo(48, 52)
-      ..moveTo(33, 41)
-      ..lineTo(48, 56)
-      ..lineTo(63, 41);
+      ..moveTo(48, 22 + arrowDrop)
+      ..lineTo(48, 52 + arrowDrop)
+      ..moveTo(33, 41 + arrowDrop)
+      ..lineTo(48, 56 + arrowDrop)
+      ..lineTo(63, 41 + arrowDrop);
     final tray = Path()
       ..moveTo(25, 58)
       ..lineTo(25, 66)
@@ -79,7 +89,8 @@ class _LogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LogoPainter old) => old.tile != tile || old.mark != mark;
+  bool shouldRepaint(_LogoPainter old) =>
+      old.tile != tile || old.mark != mark || old.arrowDrop != arrowDrop;
 }
 
 /// Draws the logo in [palette]'s colours onto [canvas], filling [size].
