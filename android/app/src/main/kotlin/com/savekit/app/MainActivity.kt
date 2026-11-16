@@ -36,6 +36,8 @@ import java.io.File
  *  - pickVideo()                                    -> {path, name, size} or null
  *  - grantStatusFolder(business), statusFolderGranted(), forgetStatusFolder()
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
+ *  - pickPhoneMedia()                                -> photos/videos picked, with where they live
+ *  - importPhoneMedia(uris, outputDir)              -> copies of them in the app's folder
  *  - setSplashTheme(theme)                          next launch's splash in that theme's colours
  *  - keepScreenOn(on)                               keeps the display awake while on
  *  - scanSpace()                                    -> photos and videos, copies, look-alikes
@@ -154,6 +156,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode != DeviceFiles.REQUEST_PICK_VIDEO &&
             requestCode != DeviceFiles.REQUEST_STATUS_FOLDER &&
+            requestCode != PhoneMedia.REQUEST_PICK_MEDIA &&
             requestCode != REQUEST_DELETE_MEDIA
         ) {
             super.onActivityResult(requestCode, resultCode, data)
@@ -164,6 +167,13 @@ class MainActivity : AudioServiceFragmentActivity() {
         if (requestCode == REQUEST_DELETE_MEDIA) {
             // The user allowed (or refused) removing the gallery copies.
             result.success(resultCode == Activity.RESULT_OK)
+            return
+        }
+        if (requestCode == PhoneMedia.REQUEST_PICK_MEDIA) {
+            val picked = PhoneMedia.pickedUris(resultCode, data)
+            DownloadEngine.runInBackground(result, "PICK_FAILED") {
+                PhoneMedia.describe(applicationContext, picked)
+            }
             return
         }
         val uri = DeviceFiles.pickedUri(resultCode, data)
@@ -377,6 +387,24 @@ class MainActivity : AudioServiceFragmentActivity() {
 
             "getExitReasons" -> DownloadEngine.runInBackground(result, "EXIT_FAILED") {
                 ExitReasons.recent(applicationContext)
+            }
+
+            "pickPhoneMedia" -> launchPicker(
+                PhoneMedia.REQUEST_PICK_MEDIA,
+                PhoneMedia.pickIntent(),
+                result,
+            )
+
+            "importPhoneMedia" -> {
+                val uris = call.argument<List<String>>("uris").orEmpty()
+                val outputDir = call.argument<String>("outputDir")
+                if (outputDir.isNullOrEmpty()) {
+                    result.error(ERROR_BAD_ARGS, "importPhoneMedia requires an 'outputDir'.", null)
+                    return
+                }
+                DownloadEngine.runInBackground(result, "IMPORT_FAILED") {
+                    PhoneMedia.import(applicationContext, uris, outputDir)
+                }
             }
 
             "pickVideo" -> launchPicker(

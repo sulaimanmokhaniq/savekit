@@ -11,6 +11,7 @@ import 'core/log/app_log.dart';
 import 'core/providers.dart';
 import 'core/settings/app_settings.dart';
 import 'features/downloader/data/download_repository.dart';
+import 'features/vault/application/folders_controller.dart';
 import 'features/player/audio_player_controller.dart';
 import 'features/player/player_handler.dart';
 
@@ -48,14 +49,17 @@ Future<void> main() async {
   DownloadRepository repository;
   SettingsRepository settings;
   PositionStore positions;
+  FolderRepository folders;
   try {
     repository = await HiveDownloadRepository.open();
     settings = await HiveSettingsRepository.open();
     positions = await HivePositionStore.open();
+    folders = await HiveFolderRepository.open();
   } catch (_) {
     repository = InMemoryDownloadRepository();
     settings = InMemorySettingsRepository();
     positions = MemoryPositionStore();
+    folders = InMemoryFolderRepository();
   }
 
   runApp(
@@ -64,6 +68,7 @@ Future<void> main() async {
         downloadRepositoryProvider.overrideWithValue(repository),
         settingsRepositoryProvider.overrideWithValue(settings),
         positionStoreProvider.overrideWithValue(positions),
+        folderRepositoryProvider.overrideWithValue(folders),
       ],
       child: const SaveKitApp(),
     ),

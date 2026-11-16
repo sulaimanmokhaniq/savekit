@@ -1,4 +1,5 @@
 import 'feed_screen.dart';
+import 'folder_widgets.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,6 +17,7 @@ import '../../downloader/domain/download_task.dart';
 import '../../tools/presentation/converter_screen.dart';
 import '../../player/audio_player_screen.dart';
 import '../../tools/presentation/editor_screen.dart';
+import '../application/folders_controller.dart';
 import '../application/vault_lock.dart';
 import 'media_viewer_screen.dart';
 import '../../../core/l10n/l10n.dart';
@@ -23,7 +25,11 @@ import '../../../core/l10n/l10n.dart';
 /// Media Vault: finished downloads. Searchable, sortable, filterable by
 /// platform, as a grid or list, with multi-select and an optional lock.
 class VaultScreen extends ConsumerStatefulWidget {
-  const VaultScreen({super.key});
+  const VaultScreen({super.key, this.folderId});
+
+  /// Shows only this folder's items, with ways to add to it; null for the
+  /// whole Vault.
+  final String? folderId;
 
   @override
   ConsumerState<VaultScreen> createState() => _VaultScreenState();
@@ -171,6 +177,42 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
+  void _openFolder(VaultFolder folder) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => VaultScreen(folderId: folder.id)),
+    );
+  }
+
+  Future<void> _addToFolder(List<DownloadTask> tasks) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final name = await addToFolder(context, ref, [
+      for (final task in tasks) task.id,
+    ]);
+    if (name == null || !mounted) return;
+    setState(_selected.clear);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(tr('Added ${tasks.length} to $name.'))),
+      );
+  }
+
+  void _removeFromFolder(VaultFolder folder, List<DownloadTask> tasks) {
+    ref.read(foldersProvider.notifier).remove(folder.id, [
+      for (final task in tasks) task.id,
+    ]);
+    setState(_selected.clear);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            tr('Removed from ${folder.name}. They are still in the Vault.'),
+          ),
+        ),
+      );
+  }
+
   void _toggle(DownloadTask task) => setState(() {
     if (!_selected.remove(task.id)) _selected.add(task.id);
   });
@@ -201,7 +243,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final locked = settings.lockVault && !ref.watch(vaultUnlockedProvider);
     if (locked) return _LockedVault(onUnlock: _unlock);
 
-    final all = ref.watch(completedDownloadsProvider);
+    final folderId = widget.folderId;
+    final folder = folderId == null
+        ? null
+        : ref
+              .watch(foldersProvider)
+              .where((folder) => folder.id == folderId)
+              .firstOrNull;
+    final all = folderId == null
+        ? ref.watch(completedDownloadsProvider)
+        : ref.watch(folderTasksProvider(folderId));
     final platforms = [
       for (final platform in MediaPlatform.values)
         if (all.any((task) => task.platform == platform)) platform,
@@ -257,6 +308,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ),
                 ),
               )
+            : folder != null
+            ? Row(
+                children: [
+                  Icon(Icons.folder_rounded, color: folder.color),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(folder.name, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              )
             : Text(tr('Vault')),
         actions: [
           if (selecting) ...[
@@ -273,10 +334,41 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               tooltip: tr('Share selected'),
               icon: const Icon(Icons.share_outlined),
             ),
+            if (folder == null)
+              IconButton(
+                onPressed: () => _addToFolder(selected),
+                tooltip: tr('Add to folder'),
+                icon: const Icon(Icons.create_new_folder_outlined),
+              )
+            else
+              IconButton(
+                onPressed: () => _removeFromFolder(folder, selected),
+                tooltip: tr('Remove from folder'),
+                icon: const Icon(Icons.folder_off_outlined),
+              ),
             IconButton(
               onPressed: () => _delete(selected),
               tooltip: tr('Delete selected'),
               icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ] else if (folder != null) ...[
+            IconButton(
+              onPressed: () => addFromPhone(context, ref, folderId: folder.id),
+              tooltip: tr('Add from phone'),
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+            ),
+            if (all.isNotEmpty)
+              IconButton(
+                onPressed: () => settingsController.setVaultGrid(!grid),
+                tooltip: grid ? tr('Show as list') : tr('Show as grid'),
+                icon: Icon(
+                  grid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
+                ),
+              ),
+            IconButton(
+              onPressed: () => showFolderOptions(context, ref, folder),
+              tooltip: tr('Folder options'),
+              icon: const Icon(Icons.more_vert_rounded),
             ),
           ] else if (all.isNotEmpty) ...[
             IconButton(
@@ -320,16 +412,53 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: all.isEmpty
+      body: folderId != null && folder == null
+          // The folder was deleted from its own menu.
           ? EmptyState(
-              icon: Icons.video_library_outlined,
-              title: tr('Your vault is empty'),
-              message: tr(
-                'Finished downloads are kept here to play, share or delete.',
-              ),
+              icon: Icons.folder_off_outlined,
+              title: tr('This folder was deleted'),
+              message: tr('Everything that was in it is still in the Vault.'),
+            )
+          : all.isEmpty && folder != null
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                EmptyState(
+                  icon: Icons.folder_open_rounded,
+                  title: tr('This folder is empty'),
+                  message: tr(
+                    'Add photos and videos from your phone, or select items '
+                    'in the Vault and choose Add to folder.',
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () =>
+                      addFromPhone(context, ref, folderId: folder.id),
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(tr('Add from phone')),
+                ),
+              ],
+            )
+          : all.isEmpty
+          ? Column(
+              children: [
+                FolderRow(onOpen: _openFolder),
+                Expanded(
+                  child: EmptyState(
+                    icon: Icons.video_library_outlined,
+                    title: tr('Your vault is empty'),
+                    message: tr(
+                      'Finished downloads are kept here to play, share or '
+                      'delete.',
+                    ),
+                  ),
+                ),
+              ],
             )
           : Column(
               children: [
+                if (folder == null && !_searching && !selecting)
+                  FolderRow(onOpen: _openFolder),
                 if (platforms.length > 1)
                   SizedBox(
                     height: 52,

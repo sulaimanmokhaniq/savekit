@@ -140,13 +140,16 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
 
   /// Adds files that are already on the phone (saved WhatsApp statuses) to
   /// the vault as a finished download, and exports them to the gallery.
-  Future<void> addCompleted({
+  Future<String?> addCompleted({
     required String title,
     required MediaPlatform platform,
     required MediaFormat format,
     required List<String> filePaths,
+
+    /// False for files that came from the gallery: they are not put back.
+    bool toGallery = true,
   }) async {
-    if (filePaths.isEmpty) return;
+    if (filePaths.isEmpty) return null;
     final size = _sizeOf(filePaths);
     final now = DateTime.now();
     final task = DownloadTask(
@@ -167,7 +170,8 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     state = [task, ...state];
     await _repository.save(task);
 
-    await _exportToGallery(task);
+    if (toGallery) await _exportToGallery(task);
+    return task.id;
   }
 
   /// Stops a queued, running or paused task.
