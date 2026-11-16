@@ -246,13 +246,6 @@ const arabicStrings = <String, String>{
   '{} theme': 'مظهر {}',
   'Match the app icon': 'مطابقة أيقونة التطبيق',
   'The icon on your home screen takes the theme’s colour. It can take a few seconds to change.': 'تأخذ الأيقونة على الشاشة الرئيسية لون المظهر. قد يستغرق التغيير بضع ثوانٍ.',
-  'APP ICON': 'أيقونة التطبيق',
-  'LANGUAGE': 'اللغة',
-  'Theme': 'المظهر',
-  'Same as theme': 'مثل المظهر',
-  '{} icon': 'أيقونة {}',
-  'The colour of the SaveKit icon on your home screen. It can take a few seconds to change.':
-      'لون أيقونة SaveKit على الشاشة الرئيسية. قد يستغرق التغيير بضع ثوانٍ.',
   'Language': 'اللغة',
   'The language of SaveKit’s own text.': 'لغة نصوص SaveKit.',
   'Phone language': 'لغة الهاتف',
@@ -342,4 +335,134 @@ const arabicStrings = <String, String>{
   'Japanese': 'اليابانية',
   'Korean': 'الكورية',
   'Chinese': 'الصينية',
+  'APP ICON': 'أيقونة التطبيق',
+  'LANGUAGE': 'اللغة',
+  'Theme': 'المظهر',
+  'Same as theme': 'مثل المظهر',
+  '{} icon': 'أيقونة {}',
+  'The colour of the SaveKit icon on your home screen. It can take a few seconds to change.':
+      'لون أيقونة SaveKit على الشاشة الرئيسية. قد يستغرق التغيير بضع ثوانٍ.',
+  'The report could not be shared.': 'تعذّرت مشاركة التقرير.',
+  'HELP': 'المساعدة',
+  'Send a report': 'إرسال تقرير',
+  'Shares the app version and recent errors so a problem can be fixed. No passwords or files are included.': 'يشارك إصدار التطبيق والأخطاء الأخيرة لإصلاح المشكلة. لا يتضمن كلمات مرور أو ملفات.',
+  'Waits until the phone is charging on Wi-Fi':
+      'ينتظر حتى يُشحن الهاتف وهو متصل بـ Wi-Fi',
+  'Start now': 'ابدأ الآن',
+  'You already have this': 'هذا موجود لديك بالفعل',
+  'It is already in your Vault as {}.': 'موجود بالفعل في خزنتك بصيغة {}.',
+  'Download again': 'تنزيل مرة أخرى',
+  'Open the Vault': 'فتح الخزنة',
+  'Download tonight · when charging on Wi-Fi':
+      'تنزيل الليلة · عند الشحن على Wi-Fi',
+  'SaveKit {} is available': 'يتوفر SaveKit {}',
+  'Download it and open the file to update.': 'نزّله وافتح الملف للتحديث.',
+  'Update': 'تحديث',
+  'Skip': 'تخطي',
+  'Save from any app': 'احفظ من أي تطبيق',
+  'In YouTube, TikTok, Instagram, X or any app, tap Share and pick SaveKit. Or copy a link and open SaveKit: it offers the link straight away.': 'في يوتيوب أو تيك توك أو إنستغرام أو X أو أي تطبيق، اضغط «مشاركة» واختر SaveKit. أو انسخ رابطًا وافتح SaveKit: سيعرضه عليك مباشرة.',
+  'Downloads keep going': 'التنزيلات تستمر',
+  'SaveKit shows a notification while it downloads, so Android lets it finish in the background. Allow notifications on the next screen to see progress.': 'يعرض SaveKit إشعارًا أثناء التنزيل حتى يسمح أندرويد بإكماله في الخلفية. اسمح بالإشعارات في الشاشة التالية لرؤية التقدم.',
+  'Log in for more': 'سجّل الدخول للمزيد',
+  'Stories, private posts and some videos need an account. Log in under Settings → Platform Accounts. Your session never leaves this phone.': 'القصص والمنشورات الخاصة وبعض الفيديوهات تحتاج إلى حساب. سجّل الدخول من الإعدادات ← حسابات المنصات. جلستك لا تغادر هذا الهاتف.',
+  'Get started': 'ابدأ',
+  'Next': 'التالي',
+  'Stop after {} minutes': 'إيقاف بعد {} دقيقة',
+  'Turn off the sleep timer': 'إيقاف مؤقت النوم',
+  'Audio player': 'مشغّل الصوت',
+  'No audio yet': 'لا يوجد صوت بعد',
+  'Download something as MP3 or M4A, or convert a video to audio, and it appears here.':
+      'نزّل شيئًا بصيغة MP3 أو M4A، أو حوّل فيديو إلى صوت، وسيظهر هنا.',
+  'Previous': 'السابق',
+  'Back 15 seconds': 'رجوع 15 ثانية',
+  'Forward 30 seconds': 'تقديم 30 ثانية',
+  'Sleep timer': 'مؤقت النوم',
+  'Stops at {}:{}': 'يتوقف عند {}:{}',
+  'Split · {}s parts': 'تقسيم · أجزاء {} ث',
+  'Vertical 9:16': 'عمودي 9:16',
+  'About {} MB': 'حوالي {} MB',
+  'GIF · {}s': 'GIF · {} ث',
+  'Photo at {}': 'صورة عند {}',
+  'Working on it. Follow it in the Queue; it lands in the Vault.':
+      'جارٍ العمل. تابعه في قائمة التنزيل؛ وسيظهر في الخزنة.',
+  'Edit video': 'تعديل الفيديو',
+  'LENGTH OF EACH PART': 'طول كل جزء',
+  '{} seconds': '{} ثانية',
+  'WhatsApp statuses can be up to 60 seconds long.':
+      'يمكن أن تصل مدة حالة واتساب إلى 60 ثانية.',
+  'About {} parts. WhatsApp statuses can be up to 60 seconds long.':
+      'حوالي {} أجزاء. يمكن أن تصل مدة حالة واتساب إلى 60 ثانية.',
+  'Keeps the middle of the picture; the sides are cut off. This re-encodes the video, so it takes a while.': 'يحتفظ بوسط الصورة ويقص الجانبين. يُعاد ترميز الفيديو لذا يستغرق بعض الوقت.',
+  'TARGET SIZE': 'الحجم المطلوب',
+  'Smaller sizes lower the picture quality. 16 MB fits WhatsApp and most messaging apps.': 'الأحجام الأصغر تقلل جودة الصورة. حجم 16 MB يناسب واتساب ومعظم تطبيقات المراسلة.',
+  'START · {}': 'البداية · {}',
+  'LENGTH · {} SECONDS': 'المدة · {} ثانية',
+  'MOMENT · {}': 'اللحظة · {}',
+  'Move the slider until the picture above is the one you want.':
+      'حرّك المؤشر حتى تظهر الصورة التي تريدها في الأعلى.',
+  'Your stats': 'إحصائياتك',
+  'Nothing yet': 'لا شيء بعد',
+  'Your stats appear here once you have downloads.':
+      'تظهر إحصائياتك هنا بعد أن تبدأ التنزيل.',
+  'Downloads': 'التنزيلات',
+  'Saved': 'المحفوظ',
+  'LAST SIX MONTHS': 'آخر ستة أشهر',
+  'BY PLATFORM': 'حسب المنصة',
+  'BY TYPE': 'حسب النوع',
+  'Play your saved audio with the screen off, change speed, set a sleep timer and carry on where you stopped.': 'شغّل الصوت المحفوظ والشاشة مطفأة، وغيّر السرعة، واضبط مؤقت النوم، وتابع من حيث توقفت.',
+  'Split for WhatsApp Status, make vertical, make smaller, make a GIF or save a photo.': 'قسّم لحالة واتساب، أو اجعله عموديًا، أو أصغر، أو اصنع GIF، أو احفظ صورة.',
+  'How much you saved, from where, and when.': 'كم حفظت، ومن أين، ومتى.',
+  'Split for WhatsApp Status': 'تقسيم لحالة واتساب',
+  'Cut into numbered parts that each fit in a status.':
+      'يُقسَّم إلى أجزاء مرقّمة يناسب كل منها حالة.',
+  'Make vertical': 'جعله عموديًا',
+  'Crop the middle to 9:16 for stories and status.':
+      'قص الوسط بنسبة 9:16 للقصص والحالة.',
+  'Make smaller': 'تصغير الحجم',
+  'Re-encode to about the size you choose.':
+      'يُعاد ترميزه ليقارب الحجم الذي تختاره.',
+  'Make a GIF': 'صنع GIF',
+  'Turn a few seconds into an animated GIF.':
+      'حوّل بضع ثوانٍ إلى صورة GIF متحركة.',
+  'Save a photo': 'حفظ صورة',
+  'Save the picture at any moment as a photo.': 'احفظ الصورة في أي لحظة.',
+  'WhatsApp': 'واتساب',
+  'Jan': 'يناير',
+  'Feb': 'فبراير',
+  'Mar': 'مارس',
+  'Apr': 'أبريل',
+  'May': 'مايو',
+  'Jun': 'يونيو',
+  'Jul': 'يوليو',
+  'Aug': 'أغسطس',
+  'Sep': 'سبتمبر',
+  'Oct': 'أكتوبر',
+  'Nov': 'نوفمبر',
+  'Dec': 'ديسمبر',
+  'Something went wrong.': 'حدث خطأ ما.',
+  'This video is age-restricted. Log in to the platform to save it.':
+      'هذا الفيديو مقيّد بالعمر. سجّل الدخول إلى المنصة لحفظه.',
+  'This is private. Log in with an account that can see it.':
+      'هذا المحتوى خاص. سجّل الدخول بحساب يمكنه رؤيته.',
+  'This needs an account. Log in to the platform to save it.':
+      'يتطلب هذا حسابًا. سجّل الدخول إلى المنصة لحفظه.',
+  'The platform is limiting requests right now. Wait a few minutes and try again.':
+      'المنصة تحدّ من الطلبات الآن. انتظر بضع دقائق ثم حاول مجددًا.',
+  'This is not available in your country.': 'هذا غير متاح في بلدك.',
+  'This is no longer available. It may have been deleted.':
+      'لم يعد هذا متاحًا. ربما حُذف.',
+  'This has not started yet. Try again once it is live or published.':
+      'لم يبدأ بعد. حاول مجددًا عند بثه أو نشره.',
+  'That quality is not offered for this link. Try another quality, or update the engine.':
+      'هذه الجودة غير متاحة لهذا الرابط. جرّب جودة أخرى أو حدّث المحرّك.',
+  'SaveKit cannot read this kind of link.':
+      'لا يستطيع SaveKit قراءة هذا النوع من الروابط.',
+  'The phone is out of storage. Free some space and try again.':
+      'مساحة الهاتف ممتلئة. وفّر بعض المساحة ثم حاول مجددًا.',
+  'There is a connection problem. Check the internet and try again.':
+      'توجد مشكلة في الاتصال. تحقق من الإنترنت ثم حاول مجددًا.',
+  'The platform changed something. Update the engine and try again.':
+      'غيّرت المنصة شيئًا ما. حدّث المحرّك ثم حاول مجددًا.',
+  'The file downloaded but could not be finished. Try another quality.':
+      'نُزّل الملف لكن تعذّر إكماله. جرّب جودة أخرى.',
 };

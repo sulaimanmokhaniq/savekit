@@ -30,9 +30,23 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+      # With the SAVEKIT_KEYSTORE_BASE64 secret set, releases are signed with
+      # that private key. Without it the public sideload key is used.
+      - name: Use the private signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SAVEKIT_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/savekit.jks"
+          echo "SAVEKIT_KEYSTORE=$RUNNER_TEMP/savekit.jks" >> "$GITHUB_ENV"
+
       # One APK per processor type keeps each download small. Almost every
       # phone from the last several years uses arm64.
       - name: Build release APKs
+        env:
+          SAVEKIT_KEYSTORE_PASSWORD: ${{ secrets.SAVEKIT_KEYSTORE_PASSWORD }}
+          SAVEKIT_KEY_ALIAS: ${{ secrets.SAVEKIT_KEY_ALIAS }}
+          SAVEKIT_KEY_PASSWORD: ${{ secrets.SAVEKIT_KEY_PASSWORD }}
         run: >
           flutter build apk --release --split-per-abi
           --build-name=1.0.${{ github.run_number }}

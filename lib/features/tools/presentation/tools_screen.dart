@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/formatters.dart';
 import '../application/storage_controller.dart';
+import '../../player/audio_player_screen.dart';
 import 'converter_screen.dart';
 import 'editor_screen.dart';
 import 'stats_screen.dart';
@@ -38,6 +39,16 @@ class ToolsScreen extends ConsumerWidget {
             title: tr('Video to audio'),
             subtitle: tr('Convert any video on this phone to MP3 or M4A.'),
             onTap: () => _open(context, const ConverterScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.headphones_rounded,
+            title: tr('Audio player'),
+            subtitle: tr(
+              'Play your saved audio with the screen off, change speed, set '
+              'a sleep timer and carry on where you stopped.',
+            ),
+            onTap: () => _open(context, const AudioPlayerScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(

@@ -3,7 +3,7 @@ package com.savekit.app
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import io.flutter.embedding.android.FlutterFragmentActivity
+import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -42,8 +42,9 @@ import java.io.File
  * Every call is answered on the main thread; the work itself runs on the engine's
  * background executor, so no call blocks the UI.
  */
-// A FragmentActivity is required by the biometric prompt used for the Vault lock.
-class MainActivity : FlutterFragmentActivity() {
+// A FragmentActivity is required by the biometric prompt used for the Vault lock, and
+// the audio-service variant by background playback in the audio player.
+class MainActivity : AudioServiceFragmentActivity() {
 
     private var engineChannel: MethodChannel? = null
     private var progressChannel: EventChannel? = null

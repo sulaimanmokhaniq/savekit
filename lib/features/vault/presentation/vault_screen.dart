@@ -12,6 +12,7 @@ import '../../downloader/application/download_queue_controller.dart';
 import '../../downloader/data/gallery_export_service.dart';
 import '../../downloader/domain/download_task.dart';
 import '../../tools/presentation/converter_screen.dart';
+import '../../player/audio_player_screen.dart';
 import '../../tools/presentation/editor_screen.dart';
 import '../application/vault_lock.dart';
 import 'media_viewer_screen.dart';
@@ -147,6 +148,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   }
 
   void _open(DownloadTask task) {
+    // Audio plays in the audio player, which keeps going with the screen off.
+    final path = task.filePath;
+    if (path != null && savedFileKindOf(path) == SavedFileKind.audio) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AudioPlayerScreen(startPath: path),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MediaViewerScreen(
