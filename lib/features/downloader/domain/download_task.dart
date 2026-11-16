@@ -17,6 +17,7 @@ class DownloadTask {
     this.uploader,
     this.thumbnail,
     this.duration,
+    this.mediaId,
     this.status = DownloadStatus.queued,
     this.progressPercent = 0,
     this.speed = '',
@@ -46,6 +47,7 @@ class DownloadTask {
       uploader: info.uploader,
       thumbnail: info.thumbnail,
       duration: info.duration,
+      mediaId: info.id,
     );
   }
 
@@ -60,6 +62,9 @@ class DownloadTask {
   final String? uploader;
   final String? thumbnail;
   final int? duration;
+
+  /// The platform's own id for the media, used to spot a repeat download.
+  final String? mediaId;
 
   final DownloadStatus status;
   final double progressPercent;
@@ -125,6 +130,7 @@ class DownloadTask {
       uploader: uploader,
       thumbnail: thumbnail,
       duration: duration,
+      mediaId: mediaId,
       status: status ?? this.status,
       progressPercent: progressPercent ?? this.progressPercent,
       speed: speed ?? this.speed,
@@ -148,6 +154,7 @@ class DownloadTask {
     'uploader': uploader,
     'thumbnail': thumbnail,
     'duration': duration,
+    'mediaId': mediaId,
     'status': status.name,
     'progressPercent': progressPercent,
     'speed': speed,
@@ -177,6 +184,7 @@ class DownloadTask {
       uploader: map['uploader'] as String?,
       thumbnail: map['thumbnail'] as String?,
       duration: (map['duration'] as num?)?.toInt(),
+      mediaId: map['mediaId'] as String?,
       status: DownloadStatus.fromName(map['status'] as String?),
       progressPercent: (map['progressPercent'] as num?)?.toDouble() ?? 0,
       speed: map['speed'] as String? ?? '',

@@ -9,6 +9,7 @@ import '../../../core/widgets/platform_badge.dart';
 import '../../../core/widgets/savekit_logo.dart';
 import '../application/batch_controller.dart';
 import '../application/incoming_link_controller.dart';
+import '../../../core/errors/friendly_error.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// Home / Smart Paste: paste or type a link, or take the one found on the
@@ -478,7 +479,7 @@ class _BatchBanner extends StatelessWidget {
                               style: const TextStyle(fontSize: 12.5),
                             ),
                             Text(
-                              failure.message,
+                              tr(describeError(failure.message).message),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

@@ -40,7 +40,7 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  static const _home = 0, _queue = 1, _settings = 4;
+  static const _home = 0, _queue = 1, _vault = 2, _settings = 4;
 
   bool _pickerOpen = false;
 
@@ -68,6 +68,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           );
       case FormatPickerResult.openAccounts:
         _select(_settings);
+      case FormatPickerResult.openVault:
+        _select(_vault);
       case null:
         break;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/log/app_log.dart';
 import '../../../core/providers.dart';
 import '../data/media_extractor.dart';
 import '../domain/media_info.dart';
@@ -62,6 +63,7 @@ class ExtractionController extends Notifier<ExtractionState> {
             )
           : ExtractionLoaded(info);
     } on MediaExtractionException catch (error) {
+      AppLog.add('Lookup failed: $trimmed', error.message);
       if (request != _request) return;
       state = ExtractionFailed(
         trimmed,
@@ -69,6 +71,7 @@ class ExtractionController extends Notifier<ExtractionState> {
         loginRequired: error.loginRequired,
       );
     } catch (error) {
+      AppLog.add('Lookup failed: $trimmed', error.toString());
       if (request != _request) return;
       state = ExtractionFailed(trimmed, error.toString());
     }

@@ -8,6 +8,7 @@ import '../../../core/widgets/platform_badge.dart';
 import '../application/download_queue_controller.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
+import '../../../core/errors/friendly_error.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// Queue & Active Downloads: live progress, with cancel and retry.
@@ -231,7 +232,9 @@ class _TaskCard extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       failed
-                          ? (task.error ?? tr('Download failed'))
+                          ? (task.error == null
+                                ? tr('Download failed')
+                                : tr(describeError(task.error).message))
                           : tr('Canceled'),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,

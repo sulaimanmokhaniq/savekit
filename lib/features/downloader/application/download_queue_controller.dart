@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/log/app_log.dart';
 import '../../../core/native/youtube_dl_native_service.dart';
 import '../../../core/platform/media_platform.dart';
 import '../../../core/network/connectivity_service.dart';
@@ -87,6 +88,27 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   }
 
   // region commands
+
+  /// A finished download of the same media in the same kind (video, audio or
+  /// photos) that is still on the phone, if there is one.
+  DownloadTask? findDuplicate(MediaInfo info, MediaFormat format) {
+    for (final task in state) {
+      if (task.status != DownloadStatus.completed || task.filePaths.isEmpty) {
+        continue;
+      }
+      if (task.platform != info.platform) continue;
+      if (_family(task.format.kind) != _family(format.kind)) continue;
+      final sameMedia =
+          (task.mediaId != null && task.mediaId == info.id) ||
+          (info.url.isNotEmpty && task.url == info.url);
+      if (sameMedia) return task;
+    }
+    return null;
+  }
+
+  /// A watermark-free stream is still the video, for spotting repeats.
+  static MediaFormatKind _family(MediaFormatKind kind) =>
+      kind == MediaFormatKind.noWatermark ? MediaFormatKind.video : kind;
 
   /// Adds a download of [format] for the media in [info] and returns its id.
   String enqueue(MediaInfo info, MediaFormat format) {
@@ -475,6 +497,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
 
   void _fail(String id, String message) {
     if (!ref.mounted) return;
+    AppLog.add('Could not start download $id', message);
     _onProgress(
       DownloadProgress(
         taskId: id,
@@ -516,6 +539,13 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
 
     final updated = task.applyProgress(progress);
     final statusChanged = updated.status != task.status;
+    if (statusChanged && updated.status == DownloadStatus.failed) {
+      AppLog.add(
+        'Download failed: ${task.platform.id} · ${task.format.label} · '
+        '${task.url}',
+        progress.error,
+      );
+    }
     _replace(updated, persist: statusChanged);
 
     if (updated.status.isTerminal) {

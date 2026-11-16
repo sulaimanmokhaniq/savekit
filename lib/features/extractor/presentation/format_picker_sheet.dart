@@ -9,10 +9,11 @@ import '../../downloader/application/download_queue_controller.dart';
 import '../application/extraction_controller.dart';
 import '../domain/media_format.dart';
 import '../domain/media_info.dart';
+import '../../../core/errors/friendly_error.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// What happened in the picker.
-enum FormatPickerResult { queued, openAccounts }
+enum FormatPickerResult { queued, openAccounts, openVault }
 
 /// Looks up [url] and shows the format picker for it. Resolves to
 /// [FormatPickerResult.queued] when a download was added,
@@ -105,6 +106,7 @@ class _Failed extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final error = describeError(state.message);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
@@ -120,14 +122,28 @@ class _Failed extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            state.message,
+            tr(error.message),
             textAlign: TextAlign.center,
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
+          if (error.isRewritten) ...[
+            const SizedBox(height: 8),
+            // The extractor's own words, for anyone reporting the problem.
+            Text(
+              error.raw,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppColors.textMuted.withValues(alpha: 0.7),
+                fontSize: 11.5,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
-          if (state.loginRequired) ...[
+          if (state.loginRequired || error.loginRequired) ...[
             FilledButton.icon(
               onPressed: () =>
                   Navigator.of(context).pop(FormatPickerResult.openAccounts),
@@ -202,7 +218,7 @@ class _PickerState extends ConsumerState<_Picker> {
 
   bool get _canAddSubtitles => _tab == _Tab.video && info.hasSubtitles;
 
-  void _download() {
+  Future<void> _download() async {
     final clip = _canTrim ? _clip : null;
     final subtitles = _canAddSubtitles ? _subtitles : null;
     var format = _selected;
@@ -219,7 +235,36 @@ class _PickerState extends ConsumerState<_Picker> {
             : '${_selected.label} · ${formatClock(start!)}–${formatClock(end!)}',
       );
     }
-    ref.read(downloadQueueControllerProvider.notifier).enqueue(info, format);
+    final queue = ref.read(downloadQueueControllerProvider.notifier);
+    final existing = queue.findDuplicate(info, format);
+    if (existing != null) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(tr('You already have this')),
+          content: Text(
+            tr('It is already in your Vault as ${tr(existing.format.label)}.'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('again'),
+              child: Text(tr('Download again')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('open'),
+              child: Text(tr('Open the Vault')),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (choice == 'open') {
+        Navigator.of(context).pop(FormatPickerResult.openVault);
+        return;
+      }
+      if (choice != 'again') return;
+    }
+    queue.enqueue(info, format);
     Navigator.of(context).pop(FormatPickerResult.queued);
   }
 

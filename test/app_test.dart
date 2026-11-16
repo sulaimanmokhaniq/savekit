@@ -354,6 +354,45 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
+  testWidgets('downloading something already in the Vault asks first', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      tasks: [
+        storedTask(
+          'old',
+          'Golden hour timelapse over the old harbour',
+          MediaPlatform.tiktok,
+          videoFormat(720),
+          DownloadStatus.completed,
+          files: ['/none/a.mp4'],
+        ).copyWithUrl('https://www.tiktok.com/@studio/video/1'),
+      ],
+    );
+    await tester.enterText(
+      find.byType(TextField),
+      'https://www.tiktok.com/@studio/video/1',
+    );
+    await tester.tap(find.text('Find media'));
+    await settle(tester);
+
+    await tester.tap(find.byIcon(Icons.download_rounded));
+    await settle(tester);
+    expect(find.text('You already have this'), findsOneWidget);
+    expect(native.started, isEmpty);
+
+    await tester.tap(find.text('Open the Vault'));
+    await settle(tester);
+    // Nothing was downloaded again; the Vault shows the existing copy.
+    expect(native.started, isEmpty);
+    expect(
+      find.text('Golden hour timelapse over the old harbour'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Sort'), findsOneWidget);
+  });
+
   testWidgets('several pasted links open the batch sheet', (tester) async {
     await pumpApp(tester);
     await tester.enterText(
@@ -546,8 +585,9 @@ void main() {
     expect(find.text('62% · 4.8MiB/s'), findsOneWidget);
     expect(find.text('14s left'), findsOneWidget);
     expect(find.text('Paused'), findsOneWidget);
+    // The extractor's wording is replaced with a plain explanation.
     expect(
-      find.text('This post is private. Log in to Instagram to save it.'),
+      find.text('This is private. Log in with an account that can see it.'),
       findsOneWidget,
     );
     expect(

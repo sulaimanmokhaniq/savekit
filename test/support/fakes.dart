@@ -521,3 +521,9 @@ List<Override> uiOverrides({
   shareSourceProvider.overrideWithValue(shareSource ?? UiFakeShareSource()),
   clipboardReaderProvider.overrideWithValue(() async => clipboard),
 ];
+
+extension TaskTestTools on DownloadTask {
+  /// The same task as if it had been downloaded from [url].
+  DownloadTask copyWithUrl(String url) =>
+      DownloadTask.fromMap({...toMap(), 'url': url});
+}
