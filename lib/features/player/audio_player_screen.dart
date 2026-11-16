@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/formatters.dart';
 import '../../core/widgets/media_thumbnail.dart';
 import 'audio_player_controller.dart';
+import 'player_handler.dart';
 
 /// The audio player: every audio file in the Vault as a playlist, with the
 /// file playing now on top. Playback continues with the screen off.
@@ -274,7 +275,7 @@ class _NowPlaying extends StatelessWidget {
                 icon: const Icon(Icons.skip_previous_rounded),
               ),
               IconButton(
-                onPressed: () => onSkip(-15),
+                onPressed: () => onSkip(-PlayerHandler.backSeconds),
                 tooltip: tr('Back 15 seconds'),
                 icon: const Icon(Icons.replay_rounded),
               ),
@@ -287,7 +288,7 @@ class _NowPlaying extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: () => onSkip(30),
+                onPressed: () => onSkip(PlayerHandler.forwardSeconds),
                 tooltip: tr('Forward 30 seconds'),
                 icon: const Icon(Icons.forward_30_rounded),
               ),

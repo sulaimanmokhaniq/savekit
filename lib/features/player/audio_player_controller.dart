@@ -4,19 +4,28 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
 
 import '../downloader/application/download_queue_controller.dart';
 import '../downloader/data/gallery_export_service.dart';
 import '../downloader/domain/download_task.dart';
+import 'player_handler.dart';
 
 /// One playable audio file from the Vault.
 class Track {
-  const Track({required this.path, required this.title, this.artist});
+  const Track({
+    required this.path,
+    required this.title,
+    this.artist,
+    this.thumbnail,
+  });
 
   final String path;
   final String title;
   final String? artist;
+
+  /// The web address of the file's picture, when it has one.
+  final String? thumbnail;
 }
 
 /// Every audio file in the Vault, newest first.
@@ -26,7 +35,12 @@ final audioTracksProvider = Provider<List<Track>>((ref) {
     for (final DownloadTask task in tasks)
       for (final path in task.filePaths)
         if (savedFileKindOf(path) == SavedFileKind.audio)
-          Track(path: path, title: task.title, artist: task.uploader),
+          Track(
+            path: path,
+            title: task.title,
+            artist: task.uploader,
+            thumbnail: task.thumbnail,
+          ),
   ];
 });
 
@@ -99,7 +113,7 @@ class PlayerView {
 /// The audio player. Playback continues with the screen off and shows the
 /// usual media controls on the lock screen and in the notification.
 class AudioPlayerController extends Notifier<PlayerView> {
-  AudioPlayer? _player;
+  PlayerHandler? _handler;
   Timer? _saveTimer;
   Timer? _sleepTimer;
 
@@ -113,31 +127,41 @@ class AudioPlayerController extends Notifier<PlayerView> {
   /// Positions this close to either end start the file from the beginning.
   static const _resumeMargin = Duration(seconds: 10);
 
-  AudioPlayer get player => _player ??= _createPlayer();
+  /// The player, or null before anything has been played.
+  AudioPlayer? get _player => _handler?.player;
 
-  AudioPlayer _createPlayer() {
-    final created = AudioPlayer();
+  AudioPlayer get player => _attach().player;
+
+  /// Starts following the app's player on first use.
+  PlayerHandler _attach() {
+    final attached = _handler;
+    if (attached != null) return attached;
+    final handler = playerHandler
+      ..onLeaveTrack = _savePosition
+      ..onStopped = _clear;
+    _handler = handler;
+    final player = handler.player;
     _subscriptions
       ..add(
-        created.playerStateStream.listen((state) {
+        player.playerStateStream.listen((state) {
           _update(playing: state.playing);
           if (!state.playing) _savePosition();
         }),
       )
       ..add(
-        created.currentIndexStream.listen((index) {
+        player.currentIndexStream.listen((index) {
           if (index == null || index == _handledIndex) return;
           _handledIndex = index;
           _update(index: index);
           _resumeCurrent();
         }),
       )
-      ..add(created.speedStream.listen((speed) => _update(speed: speed)));
+      ..add(player.speedStream.listen((speed) => _update(speed: speed)));
     // Remember the place every few seconds while playing.
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (created.playing) _savePosition();
+      if (player.playing) _savePosition();
     });
-    return created;
+    return handler;
   }
 
   @override
@@ -149,7 +173,9 @@ class AudioPlayerController extends Notifier<PlayerView> {
       for (final subscription in _subscriptions) {
         subscription.cancel();
       }
-      _player?.dispose();
+      _handler
+        ?..onLeaveTrack = null
+        ..onStopped = null;
     });
     return const PlayerView();
   }
@@ -182,21 +208,23 @@ class AudioPlayerController extends Notifier<PlayerView> {
       speed: state.speed,
       sleepAt: state.sleepAt,
     );
-    await player.setAudioSources(
+    final start = index < 0 ? 0 : index;
+    await _attach().load(
       [
         for (final track in existing)
-          AudioSource.file(
-            track.path,
-            tag: MediaItem(
-              id: track.path,
-              title: track.title,
-              artist: track.artist,
-              album: 'SaveKit',
-            ),
+          MediaItem(
+            id: track.path,
+            title: track.title,
+            artist: track.artist,
+            album: 'SaveKit',
+            artUri: track.thumbnail == null
+                ? null
+                : Uri.tryParse(track.thumbnail!),
           ),
       ],
-      initialIndex: index < 0 ? 0 : index,
-      initialPosition: _resumePoint(existing[index < 0 ? 0 : index].path),
+      [for (final track in existing) AudioSource.file(track.path)],
+      initialIndex: start,
+      initialPosition: _resumePoint(existing[start].path),
     );
     await player.play();
   }
@@ -239,9 +267,13 @@ class AudioPlayerController extends Notifier<PlayerView> {
   /// Ends playback and removes the media notification; the place in the
   /// file is kept for next time.
   Future<void> stop() async {
-    _savePosition();
+    // Saves the place and clears the screen through the handler's callbacks,
+    // the same way as when playback is ended from outside the app.
+    await _handler?.stop();
+  }
+
+  void _clear() {
     _sleepTimer?.cancel();
-    await _player?.stop();
     _handledIndex = null;
     if (!ref.mounted) return;
     state = PlayerView(speed: state.speed);
@@ -260,15 +292,7 @@ class AudioPlayerController extends Notifier<PlayerView> {
   Future<void> seek(Duration position) => player.seek(position);
 
   /// Jumps [seconds] forwards or, when negative, backwards.
-  Future<void> skip(int seconds) {
-    final target = player.position + Duration(seconds: seconds);
-    final length = player.duration;
-    return player.seek(
-      target < Duration.zero
-          ? Duration.zero
-          : (length != null && target > length ? length : target),
-    );
-  }
+  Future<void> skip(int seconds) => _attach().skipBy(seconds);
 
   Future<void> setSpeed(double speed) => player.setSpeed(speed);
 
@@ -300,15 +324,4 @@ class AudioPlayerController extends Notifier<PlayerView> {
 
 final audioPlayerProvider = NotifierProvider<AudioPlayerController, PlayerView>(
   AudioPlayerController.new,
-);
-
-/// Sets up background playback; call once before the app starts.
-Future<void> initBackgroundAudio() => JustAudioBackground.init(
-  androidNotificationChannelId: 'com.savekit.app.audio',
-  androidNotificationChannelName: 'Audio playback',
-  androidNotificationIcon: 'drawable/ic_stat_savekit',
-  // Stay a foreground service while paused. Leaving and re-entering the
-  // foreground on every pause and resume races with newer Android versions'
-  // time limit for it, which shows up as "SaveKit isn't responding".
-  androidStopForegroundOnPause: false,
 );

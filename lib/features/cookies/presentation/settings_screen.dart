@@ -116,8 +116,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           _IconPicker(
-            selectedId: settings.iconId,
-            themeId: settings.themeId,
+            selectedId: settings.launcherIconId,
             onSelect: settingsController.setIcon,
           ),
           const SizedBox(height: 22),
@@ -659,94 +658,78 @@ class _ThemePicker extends StatelessWidget {
   }
 }
 
-/// The home-screen icon in each colour, plus "same as the theme".
+/// The home-screen icon in each colour, picked the same way as the theme:
+/// one tile per colour, with a tick on the one in use.
 class _IconPicker extends StatelessWidget {
-  const _IconPicker({
-    required this.selectedId,
-    required this.themeId,
-    required this.onSelect,
-  });
+  const _IconPicker({required this.selectedId, required this.onSelect});
 
-  /// A palette id, or [AppSettings.iconMatchesTheme].
+  /// The colour the home-screen icon has now.
   final String selectedId;
-
-  /// The app's current theme, shown on the "same as theme" tile.
-  final String themeId;
   final void Function(String id) onSelect;
 
   @override
   Widget build(BuildContext context) {
-    Widget tile({
-      required String id,
-      required AppPalette palette,
-      required String name,
-      required String label,
-    }) {
-      final selected = id == selectedId;
-      return Semantics(
-        button: true,
-        selected: selected,
-        label: label,
-        child: InkWell(
-          onTap: () => onSelect(id),
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          child: Container(
-            width: 84,
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
+    return SizedBox(
+      height: 104,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: AppPalette.all.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final palette = AppPalette.all[index];
+          final selected = palette.id == selectedId;
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: tr('${palette.name} icon'),
+            child: InkWell(
+              onTap: () => onSelect(palette.id),
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(
-                color: selected ? AppColors.accent : AppColors.border,
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SaveKitLogo(size: 44, palette: palette),
-                const SizedBox(height: 8),
-                ExcludeSemantics(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? AppColors.text : AppColors.textMuted,
-                    ),
+              child: Container(
+                width: 104,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(
+                    color: selected ? AppColors.accent : AppColors.border,
+                    width: selected ? 2 : 1,
                   ),
                 ),
-              ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SaveKitLogo(size: 44, palette: palette),
+                        const Spacer(),
+                        if (selected)
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: AppColors.accent,
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    ExcludeSemantics(
+                      child: Text(
+                        palette.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 96,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          tile(
-            id: AppSettings.iconMatchesTheme,
-            palette: AppPalette.byId(themeId),
-            // Short enough to fit the tile; the full wording is read aloud.
-            name: tr('Theme'),
-            label: tr('Same as theme'),
-          ),
-          for (final palette in AppPalette.all) ...[
-            const SizedBox(width: 10),
-            tile(
-              id: palette.id,
-              palette: palette,
-              name: palette.name,
-              label: tr('${palette.name} icon'),
-            ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }

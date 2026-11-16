@@ -942,7 +942,8 @@ void main() {
 
     // The icon's colour can be chosen on its own: the theme stays as it is.
     expect(find.text('APP ICON'), findsOneWidget);
-    expect(find.bySemanticsLabel('Same as theme'), findsOneWidget);
+    // One tile per colour, with no extra "same as theme" tile repeating one.
+    expect(find.bySemanticsLabel('Same as theme'), findsNothing);
     // The sideways list that holds the icon tiles, wherever it has scrolled.
     final iconRow = find
         .ancestor(
@@ -970,18 +971,6 @@ void main() {
     await settle(tester);
     expect(AppColors.current.name, 'Pulse');
     expect(iconChanges.last, 'gold');
-
-    // "Same as theme" ties them together again.
-    await tester.scrollUntilVisible(
-      find.bySemanticsLabel('Same as theme'),
-      -120,
-      scrollable: iconRow,
-    );
-    await tester.ensureVisible(find.bySemanticsLabel('Same as theme'));
-    await tester.pump();
-    await tester.tap(find.bySemanticsLabel('Same as theme'));
-    await settle(tester);
-    expect(iconChanges.last, 'pulse');
 
     await openTab(tester, 'Home');
     await shoot(tester, '17_home_tide');

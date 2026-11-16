@@ -81,3 +81,8 @@ class _LogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(_LogoPainter old) => old.tile != tile || old.mark != mark;
 }
+
+/// Draws the logo in [palette]'s colours onto [canvas], filling [size].
+/// For pictures made outside the widget tree, such as the player's cover.
+void paintSaveKitLogo(Canvas canvas, Size size, AppPalette palette) =>
+    _LogoPainter(palette.accent, palette.onAccent).paint(canvas, size);

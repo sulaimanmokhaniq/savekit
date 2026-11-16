@@ -12,6 +12,7 @@ import 'core/providers.dart';
 import 'core/settings/app_settings.dart';
 import 'features/downloader/data/download_repository.dart';
 import 'features/player/audio_player_controller.dart';
+import 'features/player/player_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
