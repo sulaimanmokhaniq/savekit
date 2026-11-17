@@ -140,6 +140,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
+        <activity-alias
+            android:name=".LauncherLime"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_lime"
+            android:label="SaveKit">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
 
         <!-- Background audio playback: lock-screen controls and the media notification. -->
         <service

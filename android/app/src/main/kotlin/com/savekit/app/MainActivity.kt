@@ -539,6 +539,7 @@ class MainActivity : AudioServiceFragmentActivity() {
         "classic" -> R.style.Splash_Classic
         "rose" -> R.style.Splash_Rose
         "gold" -> R.style.Splash_Gold
+        "lime" -> R.style.Splash_Lime
         else -> R.style.Splash_Ember
     }
 

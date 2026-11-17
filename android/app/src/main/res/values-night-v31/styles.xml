@@ -53,4 +53,10 @@
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_gold</item>
         <item name="android:windowBackground">@color/splash_background_gold</item>
     </style>
+
+    <style name="Splash.Lime" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_lime</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_lime</item>
+        <item name="android:windowBackground">@color/splash_background_lime</item>
+    </style>
 </resources>

@@ -136,8 +136,22 @@ class AppPalette {
     textMuted: Color(0xFFA0977F),
   );
 
+  static const lime = AppPalette(
+    id: 'lime',
+    name: 'Lime',
+    description: 'Deep teal night, electric lime',
+    background: Color(0xFF0B1A1F),
+    surface: Color(0xFF0F262C),
+    surfaceHigh: Color(0xFF14323A),
+    border: Color(0xFF1E3D3A),
+    accent: Color(0xFFB7F33B),
+    onAccent: Color(0xFF0F1E05),
+    text: Color(0xFFEEF6E4),
+    textMuted: Color(0xFF8FA89A),
+  );
+
   /// In the order the theme picker shows them.
-  static const all = [ember, vault, pulse, tide, rose, gold, classic];
+  static const all = [ember, vault, pulse, tide, rose, gold, lime, classic];
 
   static const fallback = ember;
 
