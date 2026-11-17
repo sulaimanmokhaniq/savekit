@@ -291,7 +291,8 @@ void main() {
         for (var i = 0; i < 5; i++) controller().enqueue(info('v$i'), video),
       ];
       await settle();
-      expect(native.started, ids.take(3));
+      // The three oldest start together, so in no fixed order.
+      expect(native.started, unorderedEquals(ids.take(3)));
       expect(task(ids[3]).status, DownloadStatus.queued);
       expect(notificationRequests, 1);
 
@@ -307,7 +308,9 @@ void main() {
       expect(task(ids[0]).status, DownloadStatus.failed);
       expect(task(ids[0]).error, 'boom');
       expect(native.finishedNotifications, {ids[0]: false});
-      expect(native.started, ids.take(4));
+      expect(native.started, unorderedEquals(ids.take(4)));
+      // The fourth is the one that took the free slot.
+      expect(native.started.last, ids[3]);
       expect(gallery.exported, isEmpty);
     },
   );
