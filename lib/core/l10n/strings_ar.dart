@@ -624,4 +624,9 @@ const arabicStrings = <String, String>{
   'This folder is empty': 'هذا المجلد فارغ',
   'Add photos and videos from your phone, or select items in the Vault and choose Add to folder.': 'أضف صورًا وفيديوهات من هاتفك، أو حدد عناصر في الخزنة واختر «إضافة إلى مجلد».',
   'From your phone': 'من هاتفك',
+  'Tap to choose · {} of {}': 'اضغط للاختيار · {} من {}',
+  'Download {} of {}': 'تنزيل {} من {}',
+  'Item {}': 'العنصر {}',
+  '{} of {} items': '{} من {} عناصر',
+  'Show all': 'عرض الكل',
 };

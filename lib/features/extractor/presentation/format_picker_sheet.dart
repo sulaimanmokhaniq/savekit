@@ -185,6 +185,16 @@ class _PickerState extends ConsumerState<_Picker> {
   /// Subtitles to embed, as (language, machine-made); null for none.
   (String, bool)? _subtitles;
 
+  /// Items of a multi-item post to download, by position; all at first.
+  late final Set<int> _picked = {
+    for (var index = 0; index < info.galleryItems.length; index++) index,
+  };
+
+  /// Whether the user can choose items: a post with more than one.
+  bool get _canPick => _tab == _Tab.photos && info.galleryItems.length > 1;
+
+  bool get _pickedSome => _canPick && _picked.length < info.galleryItems.length;
+
   MediaInfo get info => widget.info;
 
   List<MediaFormat> _optionsOf(_Tab tab) => switch (tab) {
@@ -223,6 +233,12 @@ class _PickerState extends ConsumerState<_Picker> {
     final clip = _canTrim ? _clip : null;
     final subtitles = _canAddSubtitles ? _subtitles : null;
     var format = _selected;
+    if (_pickedSome) {
+      format = _selected.withPicked(
+        _picked.toList(),
+        isVideo: [for (final item in info.galleryItems) item.isVideo],
+      );
+    }
     if (clip != null || subtitles != null) {
       final start = clip?.start.round();
       final end = clip?.end.round();
@@ -306,7 +322,21 @@ class _PickerState extends ConsumerState<_Picker> {
           const SizedBox(height: 16),
         ],
         if (_tab == _Tab.photos && info.galleryItems.isNotEmpty) ...[
-          _GalleryStrip(items: info.galleryItems),
+          _GalleryStrip(
+            items: info.galleryItems,
+            picked: _canPick ? _picked : null,
+            onToggle: (index) => setState(() {
+              if (!_picked.remove(index)) _picked.add(index);
+            }),
+            onAll: (all) => setState(() {
+              _picked.clear();
+              if (all) {
+                _picked.addAll([
+                  for (var i = 0; i < info.galleryItems.length; i++) i,
+                ]);
+              }
+            }),
+          ),
           const SizedBox(height: 14),
         ],
         Wrap(
@@ -342,10 +372,14 @@ class _PickerState extends ConsumerState<_Picker> {
         ],
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: _download,
+          onPressed: _canPick && _picked.isEmpty ? null : _download,
           icon: const Icon(Icons.download_rounded, size: 20),
           label: Text(
-            _canTrim && _clip != null
+            _pickedSome
+                ? tr(
+                    'Download ${_picked.length} of ${info.galleryItems.length}',
+                  )
+                : _canTrim && _clip != null
                 ? tr(
                     'Download clip · '
                     '${formatClock((_clip!.end - _clip!.start).round())}',
@@ -357,7 +391,9 @@ class _PickerState extends ConsumerState<_Picker> {
         ),
         const SizedBox(height: 6),
         TextButton.icon(
-          onPressed: () => _download(tonight: true),
+          onPressed: _canPick && _picked.isEmpty
+              ? null
+              : () => _download(tonight: true),
           icon: const Icon(Icons.bedtime_outlined, size: 18),
           label: Text(tr('Download tonight · when charging on Wi-Fi')),
         ),
@@ -632,38 +668,104 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// The post's photos and videos. When [picked] is given, each can be ticked
+/// or unticked, so only some are downloaded.
 class _GalleryStrip extends StatelessWidget {
-  const _GalleryStrip({required this.items});
+  const _GalleryStrip({
+    required this.items,
+    this.picked,
+    required this.onToggle,
+    required this.onAll,
+  });
 
   final List<GalleryItem> items;
 
+  /// Positions chosen for download; null when there is nothing to choose.
+  final Set<int>? picked;
+  final void Function(int index) onToggle;
+  final void Function(bool all) onAll;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 76,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return Stack(
-            alignment: Alignment.center,
+    final chosen = picked;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (chosen != null)
+          Row(
             children: [
-              MediaThumbnail(
-                url: item.thumbnail,
-                width: 76,
-                height: 76,
-                fallbackIcon: item.isVideo
-                    ? Icons.movie_outlined
-                    : Icons.image_outlined,
+              Expanded(
+                child: Text(
+                  tr('Tap to choose · ${chosen.length} of ${items.length}'),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                ),
               ),
-              if (item.isVideo && item.thumbnail != null)
-                const Icon(Icons.play_circle_fill_rounded, color: Colors.white),
+              TextButton(
+                onPressed: () => onAll(chosen.length < items.length),
+                child: Text(
+                  chosen.length < items.length ? tr('Select all') : tr('Clear'),
+                ),
+              ),
             ],
-          );
-        },
-      ),
+          ),
+        SizedBox(
+          height: 92,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final on = chosen == null || chosen.contains(index);
+              final tile = Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 120),
+                    opacity: on ? 1 : 0.35,
+                    child: MediaThumbnail(
+                      url: item.thumbnail ?? (item.isVideo ? null : item.url),
+                      width: 92,
+                      height: 92,
+                      fallbackIcon: item.isVideo
+                          ? Icons.movie_outlined
+                          : Icons.image_outlined,
+                    ),
+                  ),
+                  if (item.isVideo && item.thumbnail != null)
+                    const Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: Colors.white,
+                    ),
+                  if (chosen != null)
+                    PositionedDirectional(
+                      top: 5,
+                      end: 5,
+                      child: Icon(
+                        on
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 22,
+                        color: on ? AppColors.accent : Colors.white,
+                        shadows: const [Shadow(blurRadius: 4)],
+                      ),
+                    ),
+                ],
+              );
+              if (chosen == null) return tile;
+              return Semantics(
+                button: true,
+                selected: on,
+                label: tr('Item ${index + 1}'),
+                child: GestureDetector(
+                  onTap: () => onToggle(index),
+                  child: tile,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

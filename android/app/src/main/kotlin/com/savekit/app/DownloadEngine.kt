@@ -708,7 +708,9 @@ object DownloadEngine {
     private fun downloadGallery(request: DownloadRequest, outputDir: File, cookies: File?): List<File> {
         val taskId = request.taskId
         val total = request.itemCount
-        return GalleryEngine.download(appContext, taskId, request.url, outputDir, cookies) { finished ->
+        return GalleryEngine.download(
+            appContext, taskId, request.url, outputDir, cookies, request.options["range"],
+        ) { finished ->
             val percent = if (total > 0) (finished * 100.0 / total).coerceIn(0.0, 99.0) else 0.0
             val label = if (total > 0) "$finished/$total files" else "$finished files"
             emit(progressEvent(taskId, STATUS_DOWNLOADING, percent, label, -1))

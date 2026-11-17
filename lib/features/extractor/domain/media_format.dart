@@ -143,7 +143,44 @@ class MediaFormat {
     clipEnd: clipEnd,
     subtitleLanguage: subtitleLanguage,
     autoSubtitles: autoSubtitles,
+    options: options,
   );
+
+  /// This post download limited to the items at [positions] (from 0) of
+  /// [items]; the rest of the post is skipped.
+  MediaFormat withPicked(List<int> positions, {required List<bool> isVideo}) {
+    final sorted = [...positions]..sort();
+    final videos = sorted.where((index) => isVideo[index]).length;
+    return MediaFormat(
+      id: id,
+      kind: kind,
+      label: '${sorted.length} of ${isVideo.length} items',
+      engine: engine,
+      formatSelection: formatSelection,
+      formatSort: formatSort,
+      extractAudio: extractAudio,
+      audioFormat: audioFormat,
+      ext: ext,
+      height: height,
+      itemCount: sorted.length,
+      imageCount: sorted.length - videos,
+      videoCount: videos,
+      directUrls: directUrls.isEmpty
+          ? directUrls
+          : [
+              for (final index in sorted)
+                if (index < directUrls.length) directUrls[index],
+            ],
+      referer: referer,
+      subtitleLanguage: subtitleLanguage,
+      autoSubtitles: autoSubtitles,
+      // gallery-dl counts from 1.
+      options: {
+        ...options,
+        'range': [for (final index in sorted) index + 1].join(','),
+      },
+    );
+  }
 
   bool get isAudio => kind == MediaFormatKind.audio;
   bool get isGallery => kind == MediaFormatKind.gallery;

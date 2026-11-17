@@ -354,6 +354,101 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
+  testWidgets('only the chosen items of a post are downloaded', (tester) async {
+    await pumpApp(tester);
+    await tester.enterText(
+      find.byType(TextField),
+      'https://www.tiktok.com/@studio/video/1',
+    );
+    await tester.tap(find.text('Find media'));
+    await settle(tester);
+    await tester.tap(find.text('Photos'));
+    await settle(tester);
+
+    // Everything is chosen at first.
+    expect(find.text('Tap to choose · 4 of 4'), findsOneWidget);
+    expect(find.text('Download'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Item 2'));
+    await tester.pump();
+    expect(find.text('Tap to choose · 3 of 4'), findsOneWidget);
+    expect(find.text('Download 3 of 4'), findsOneWidget);
+    await shoot(tester, '39_pick_items');
+
+    // Select all, then Clear, which leaves nothing to download.
+    await tester.tap(find.text('Select all'));
+    await tester.pump();
+    expect(find.text('Tap to choose · 4 of 4'), findsOneWidget);
+    await tester.tap(find.text('Clear'));
+    await tester.pump();
+    expect(
+      tester
+          .widget<ButtonStyleButton>(
+            find.ancestor(
+              of: find.byIcon(Icons.download_rounded),
+              matching: find.bySubtype<ButtonStyleButton>(),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Select all'));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Item 2'));
+    await tester.pump();
+
+    await tester.tap(find.text('Download 3 of 4'));
+    await settle(tester);
+    final format = native.startedFormats.values.single;
+    expect(format.options['range'], '1,3,4');
+    expect(format.itemCount, 3);
+    expect(format.label, '3 of 4 items');
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('a post with several files opens as a grid', (tester) async {
+    final folder = Directory.systemTemp.createTempSync('savekit-grid');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    final files = [
+      for (final name in ['1.jpg', '2.jpg', '3.mp4'])
+        (File('${folder.path}/$name')..writeAsBytesSync([0])).path,
+    ];
+    await pumpApp(
+      tester,
+      tasks: [
+        storedTask(
+          'post',
+          'Harbour carousel',
+          MediaPlatform.x,
+          photosFormat,
+          DownloadStatus.completed,
+          files: files,
+        ),
+      ],
+    );
+    await openTab(tester, 'Vault');
+    await tester.tap(find.text('Harbour carousel'));
+    await settle(tester);
+
+    // All three side by side.
+    expect(find.bySemanticsLabel('Item 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Item 3'), findsOneWidget);
+
+    // One opens full screen, at its place in the post.
+    await tester.tap(find.bySemanticsLabel('Item 2'));
+    await settle(tester);
+    expect(find.text('2 of 3'), findsOneWidget);
+    expect(find.bySemanticsLabel('Item 1'), findsNothing);
+
+    // Back returns to the grid, then to the Vault.
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(find.bySemanticsLabel('Item 1'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await settle(tester);
+    expect(find.bySemanticsLabel('Item 1'), findsNothing);
+  });
+
   testWidgets('downloading something already in the Vault asks first', (
     tester,
   ) async {

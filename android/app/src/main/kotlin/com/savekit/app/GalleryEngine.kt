@@ -425,7 +425,7 @@ object GalleryEngine {
     // region downloading
 
     /**
-     * Downloads every file of the post into [outputDir] and returns them. [onProgress] gets
+     * Downloads the files of the post (all, or those in [range]) into [outputDir] and returns them. [onProgress] gets
      * the number of files finished so far. Throws [CanceledException] after [cancel].
      */
     fun download(
@@ -434,6 +434,8 @@ object GalleryEngine {
         url: String,
         outputDir: File,
         cookies: File?,
+        /** Which files of the post, by position from 1, such as "1,3,4"; null for all. */
+        range: String? = null,
         onProgress: (finished: Int) -> Unit,
     ): List<File> {
         ensureReady(context)
@@ -454,6 +456,9 @@ object GalleryEngine {
             val args = ArrayList(BASE_ARGS)
             args.addAll(listOf("--no-mtime", "--directory", staging.absolutePath))
             if (cookies != null) args.addAll(listOf("--cookies", cookies.absolutePath))
+            if (range != null && range.matches(Regex("[0-9,-]+"))) {
+                args.addAll(listOf("--range", range))
+            }
             args.add(url)
 
             var finished = 0
