@@ -629,4 +629,6 @@ const arabicStrings = <String, String>{
   'Item {}': 'العنصر {}',
   '{} of {} items': '{} من {} عناصر',
   'Show all': 'عرض الكل',
+  'No internet. Downloads carry on by themselves when the connection is back.':
+      'لا يوجد إنترنت. ستُكمل التنزيلات تلقائيًا عند عودة الاتصال.',
 };

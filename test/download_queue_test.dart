@@ -500,4 +500,129 @@ void main() {
     await settle();
     expect(task('alive').progressPercent, 80);
   });
+
+  group('when the connection drops', () {
+    setUp(
+      () => DownloadQueueController.retryDelay = const Duration(
+        milliseconds: 200,
+      ),
+    );
+    tearDown(
+      () => DownloadQueueController.retryDelay = const Duration(seconds: 15),
+    );
+
+    void fail(String id, String message) => native.events.add(
+      DownloadProgress(
+        taskId: id,
+        status: DownloadStatus.failed,
+        error: message,
+      ),
+    );
+
+    test('downloads wait while offline and start when it is back', () async {
+      await settle();
+      connectivity.setOnline(false);
+      await settle();
+      final id = controller().enqueue(info('a'), video);
+      await settle();
+      expect(native.started, isEmpty);
+      expect(task(id).status, DownloadStatus.queued);
+      expect(container.read(waitingForConnectionProvider), isTrue);
+
+      connectivity.setOnline(true);
+      await settle();
+      expect(native.started, [id]);
+      expect(container.read(waitingForConnectionProvider), isFalse);
+    });
+
+    test('a running download stops when offline and resumes after', () async {
+      final id = controller().enqueue(info('a'), video);
+      await settle();
+      native.events.add(
+        DownloadProgress(
+          taskId: id,
+          status: DownloadStatus.downloading,
+          progressPercent: 40,
+        ),
+      );
+      await settle();
+
+      connectivity.setOnline(false);
+      await settle();
+      expect(native.canceled, [id]);
+      expect(task(id).status, DownloadStatus.queued);
+      // Its partial file stays: the engine's last word is "canceled".
+      native.events.add(
+        DownloadProgress(taskId: id, status: DownloadStatus.canceled),
+      );
+      await settle();
+      expect(task(id).status, DownloadStatus.queued);
+      expect(task(id).progressPercent, 40);
+
+      connectivity.setOnline(true);
+      await settle();
+      expect(native.started, [id, id]);
+    });
+
+    test('a dropped connection is waited out, not reported', () async {
+      final id = controller().enqueue(info('a'), video);
+      await settle();
+      // The engine noticed first; the phone reports it a moment later.
+      connectivity.online = false;
+      connectivity.setOnline(false);
+      fail(
+        id,
+        'ERROR: Unable to download webpage: <urlopen error '
+        '[Errno 101] Network is unreachable>',
+      );
+      await settle();
+      await settle();
+      expect(task(id).status, DownloadStatus.queued);
+      expect(task(id).error, isNull);
+      expect(native.started, [id]);
+
+      connectivity.setOnline(true);
+      await settle();
+      await settle();
+      expect(native.started, [id, id]);
+    });
+
+    test('while online it is tried a few times, then fails', () async {
+      final id = controller().enqueue(info('a'), video);
+      await settle();
+      for (
+        var attempt = 1;
+        attempt <= DownloadQueueController.maxAutoRetries;
+        attempt++
+      ) {
+        fail(id, 'Read timed out');
+        await settle();
+        expect(task(id).status, DownloadStatus.queued, reason: '$attempt');
+        // It waits a little longer each time before starting again.
+        await Future<void>.delayed(
+          DownloadQueueController.retryDelay * attempt +
+              const Duration(milliseconds: 60),
+        );
+        expect(native.started, hasLength(attempt + 1));
+      }
+      fail(id, 'Read timed out');
+      await settle();
+      expect(task(id).status, DownloadStatus.failed);
+
+      // Trying again by hand starts the count afresh.
+      controller().retry(id);
+      await settle();
+      fail(id, 'Read timed out');
+      await settle();
+      expect(task(id).status, DownloadStatus.queued);
+    });
+
+    test('other errors fail straight away', () async {
+      final id = controller().enqueue(info('a'), video);
+      await settle();
+      fail(id, 'ERROR: [youtube] abc: Video unavailable');
+      await settle();
+      expect(task(id).status, DownloadStatus.failed);
+    });
+  });
 }

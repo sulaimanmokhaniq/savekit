@@ -119,3 +119,18 @@ FriendlyError describeError(String? raw) {
   }
   return FriendlyError(message: text, raw: text);
 }
+
+final _connectionTrouble = RegExp(
+  r'name resolution|failed to resolve|network is unreachable|'
+  r'no address associated|connection (refused|reset|timed out|aborted|closed)|'
+  r'timed out|timeout|unable to download webpage|socketexception|'
+  r'broken pipe|errno (101|104|110|113)|incompleteread|'
+  r'connection was lost|software caused connection abort|'
+  r'clientexception|httpexception|failed host lookup',
+  caseSensitive: false,
+);
+
+/// Whether [raw] says the connection dropped or could not be made, rather
+/// than that the platform refused. Such downloads are worth trying again.
+bool isConnectionError(String? raw) =>
+    raw != null && _connectionTrouble.hasMatch(raw);

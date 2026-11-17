@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -8,6 +10,7 @@ import '../../../core/device/device_service.dart';
 import '../../../core/log/app_log.dart';
 import '../../../core/native/youtube_dl_native_service.dart';
 import '../../../core/platform/media_platform.dart';
+import '../../../core/errors/friendly_error.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/providers.dart';
 import '../../../core/settings/app_settings.dart';
@@ -33,6 +36,24 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   /// final event has not arrived yet. They must not be restarted until it has.
   final _stopping = <String>{};
   bool _onWifi = true;
+
+  /// Whether the phone has any connection. While it has none, downloads
+  /// wait instead of failing, and carry on once it is back.
+  bool _online = true;
+
+  /// Times a download was tried again on its own after a dropped
+  /// connection, by task; reset when it finishes or the user retries.
+  final _autoRetries = <String, int>{};
+
+  /// Downloads waiting a moment before trying again.
+  final _coolingDown = <String>{};
+  final _timers = <Timer>[];
+
+  /// A download whose connection keeps failing while the phone says it is
+  /// online (a weak network, or the site is down) fails after this many
+  /// tries, rather than trying forever.
+  static const maxAutoRetries = 3;
+
   final _random = Random();
   DateTime _lastServiceUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   bool _askedNotifications = false;
@@ -61,6 +82,16 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     ref.listen(onWifiProvider, (_, next) {
       _onWifi = next.value ?? true;
       _onConditionsChanged();
+    });
+    _online = ref.read(onlineProvider).value ?? true;
+    ref.listen(onlineProvider, (_, next) {
+      _online = next.value ?? true;
+      _onConditionsChanged();
+    });
+    ref.onDispose(() {
+      for (final timer in _timers) {
+        timer.cancel();
+      }
     });
     ref.listen(settingsControllerProvider, (_, _) => _onConditionsChanged());
     _charging = ref.read(chargingProvider).value ?? false;
@@ -284,7 +315,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   }
 
   bool get _blockedByWifi =>
-      ref.read(settingsControllerProvider).wifiOnly && !_onWifi;
+      (ref.read(settingsControllerProvider).wifiOnly && !_onWifi) || !_online;
 
   /// Wi-Fi or charging came or went, or a download setting changed.
   void _onConditionsChanged() {
@@ -298,7 +329,9 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       }
     }
     if (_blockedByWifi) {
-      // Running downloads go back to waiting rather than use mobile data.
+      // Running downloads go back to waiting rather than use mobile data,
+      // or, with no connection at all, rather than fail. They resume from
+      // their partial files once they may run again.
       for (final task in [...state]) {
         if (task.status.isRunning && !task.format.isConversion) {
           unawaited(_halt(task, DownloadStatus.queued));
@@ -314,6 +347,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   void retry(String id) {
     final task = _find(id);
     if (task == null || !task.canRetry) return;
+    _autoRetries.remove(id);
     _replace(
       task.copyWith(
         status: DownloadStatus.queued,
@@ -466,6 +500,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
                     task.status == DownloadStatus.queued &&
                     !_starting.contains(task.id) &&
                     !_stopping.contains(task.id) &&
+                    !_coolingDown.contains(task.id) &&
                     (!offlineOnly || task.format.isConversion) &&
                     (!task.tonight || _nightReady),
               )
@@ -575,6 +610,16 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       }
     }
 
+    if (progress.status == DownloadStatus.failed &&
+        !task.format.isConversion &&
+        isConnectionError(progress.error) &&
+        _waitForConnection(task, progress.error)) {
+      return;
+    }
+    if (progress.status == DownloadStatus.completed) {
+      _autoRetries.remove(task.id);
+    }
+
     final updated = task.applyProgress(progress);
     final statusChanged = updated.status != task.status;
     if (statusChanged && updated.status == DownloadStatus.failed) {
@@ -594,6 +639,38 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       _syncService(force: statusChanged);
     }
   }
+
+  /// The connection dropped under [task]. With no connection at all it
+  /// waits, however long that takes, and resumes when the phone is back
+  /// online. While the phone says it is online, it is tried again a little
+  /// later, a few times, before it is reported as failed. Returns false
+  /// when it should fail now.
+  bool _waitForConnection(DownloadTask task, String? error) {
+    final id = task.id;
+    if (_online) {
+      final tries = _autoRetries[id] ?? 0;
+      if (tries >= maxAutoRetries) return false;
+      _autoRetries[id] = tries + 1;
+      _coolingDown.add(id);
+      _timers.add(
+        Timer(retryDelay * (tries + 1), () {
+          _coolingDown.remove(id);
+          if (ref.mounted) unawaited(_pump());
+        }),
+      );
+    }
+    AppLog.add('Connection lost: download $id will resume', error);
+    _replace(task.copyWith(status: DownloadStatus.queued, speed: '', eta: -1));
+    _syncService(force: true);
+    // Its slot is free for something that does not need the network.
+    unawaited(_pump());
+    return true;
+  }
+
+  /// How long a download waits before trying again after a dropped
+  /// connection; longer each time. Shortened by tests.
+  @visibleForTesting
+  static Duration retryDelay = const Duration(seconds: 15);
 
   /// Gallery export and the "finished" notification for a task that just ended.
   Future<void> _finish(DownloadTask task) async {
@@ -840,6 +917,18 @@ final waitingForWifiProvider = Provider<bool>((ref) {
   return ref
       .watch(downloadQueueControllerProvider)
       .any((task) => task.status == DownloadStatus.queued);
+});
+
+/// True while downloads are held back because the phone has no connection.
+final waitingForConnectionProvider = Provider<bool>((ref) {
+  final online = ref.watch(onlineProvider).value ?? true;
+  if (online) return false;
+  return ref
+      .watch(downloadQueueControllerProvider)
+      .any(
+        (task) =>
+            task.status == DownloadStatus.queued && !task.format.isConversion,
+      );
 });
 
 /// Number of downloads waiting or running, for the navigation badge.

@@ -147,14 +147,21 @@ class UiFakeNative implements YoutubeDlNativeService {
 
 /// A connection the test controls.
 class FakeConnectivity implements ConnectivityService {
-  FakeConnectivity({this.onWifi = true});
+  FakeConnectivity({this.onWifi = true, this.online = true});
 
   bool onWifi;
+  bool online;
   final _changes = StreamController<bool>.broadcast();
+  final _onlineChanges = StreamController<bool>.broadcast();
 
   void setWifi(bool value) {
     onWifi = value;
     _changes.add(value);
+  }
+
+  void setOnline(bool value) {
+    online = value;
+    _onlineChanges.add(value);
   }
 
   @override
@@ -162,6 +169,12 @@ class FakeConnectivity implements ConnectivityService {
 
   @override
   Stream<bool> get wifiChanges => _changes.stream;
+
+  @override
+  Future<bool> isOnline() async => online;
+
+  @override
+  Stream<bool> get onlineChanges => _onlineChanges.stream;
 }
 
 class UiFakeVaultLock implements VaultLockService {

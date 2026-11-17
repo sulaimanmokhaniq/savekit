@@ -21,7 +21,10 @@ class QueueScreen extends ConsumerWidget {
     final hasFailed = tasks.any((task) => task.canRetry);
     final hasActive = tasks.any((task) => task.isActive);
     final hasPaused = tasks.any((task) => task.canResume);
-    final waitingForWifi = ref.watch(waitingForWifiProvider);
+    final waitingForConnection = ref.watch(waitingForConnectionProvider);
+    // Without any connection, that is the message; Wi-Fi comes second.
+    final waitingForWifi =
+        !waitingForConnection && ref.watch(waitingForWifiProvider);
     final controller = ref.read(downloadQueueControllerProvider.notifier);
 
     return Scaffold(
@@ -64,6 +67,40 @@ class QueueScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
+                if (waitingForConnection)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.card),
+                        border: Border.all(color: AppColors.warning),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.cloud_off_rounded,
+                            color: AppColors.warning,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              tr(
+                                'No internet. Downloads carry on by '
+                                'themselves when the connection is back.',
+                              ),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (waitingForWifi)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
