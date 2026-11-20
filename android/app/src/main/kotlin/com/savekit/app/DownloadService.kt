@@ -147,7 +147,7 @@ class DownloadService : Service() {
                     if (success) R.drawable.ic_stat_savekit
                     else android.R.drawable.stat_notify_error,
                 )
-                .setColor(context.getColor(R.color.notification_accent))
+                .setColor(LauncherIcon.accentColor(context))
                 .setContentTitle(if (success) "Download complete" else "Download failed")
                 .setContentText(title)
                 .setAutoCancel(true)
@@ -168,7 +168,7 @@ class DownloadService : Service() {
             ensureChannels(context)
             val builder = builder(context, PROGRESS_CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_savekit)
-                .setColor(context.getColor(R.color.notification_accent))
+                .setColor(LauncherIcon.accentColor(context))
                 .setContentTitle(title)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

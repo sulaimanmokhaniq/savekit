@@ -10,7 +10,7 @@
     <color name="ic_launcher_background_gold">#F4B93A</color>
     <color name="ic_launcher_background_lime">#B7F33B</color>
     <color name="ic_launcher_background">#FF6A2B</color>
-    <color name="notification_accent">#FF6A2B</color>
+    <color name="notification_accent">#12B5E5</color>
     <!-- Splash screen background of each theme (the app's own background). -->
     <color name="splash_background_ember">#100D0B</color>
     <color name="splash_background_vault">#090F0D</color>

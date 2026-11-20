@@ -26,10 +26,13 @@
 
     <!-- extractNativeLibs lets Android unpack the bundled Python, FFmpeg and aria2c
          binaries (.so) into nativeLibraryDir, the only place an app may execute from. -->
+    <!-- The app's own icon is Tide (blue). Android shows it wherever it does not use the
+         launcher entry: the share sheet, notifications, app info and recent apps. The
+         home-screen icon still takes the colour chosen in the app. -->
     <application
         android:label="SaveKit"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_tide"
         android:extractNativeLibs="true"
         android:requestLegacyExternalStorage="true">
         <activity

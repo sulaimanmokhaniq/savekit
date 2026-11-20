@@ -18,9 +18,24 @@ object LauncherIcon {
         "${context.packageName}.Launcher${theme.replaceFirstChar { it.uppercase() }}",
     )
 
+    private const val PREFS = "savekit_launcher_icon"
+    private const val PREF_THEME = "theme"
+
+    /** The colour of the chosen icon, for tinting the app's own notifications. */
+    fun accentColor(context: Context): Int {
+        val theme = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(PREF_THEME, null)
+        val id = if (theme == null) 0 else context.resources.getIdentifier(
+            "ic_launcher_background_$theme", "color", context.packageName,
+        )
+        return context.getColor(if (id != 0) id else R.color.notification_accent)
+    }
+
     /** Shows the icon of [theme]; an unknown theme falls back to the default icon. */
     fun apply(context: Context, theme: String) {
         val chosen = if (theme in THEMES) theme else THEMES.first()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(PREF_THEME, chosen).apply()
         val packages = context.packageManager
         // Each change makes the launcher reload the app, so only touch entries
         // that are not already as wanted. Usually that is none of them.
