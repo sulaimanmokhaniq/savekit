@@ -102,6 +102,22 @@ object DownloadEngine {
 
     private val YTDLP_SPEED = Pattern.compile("\\bat\\s+(\\S+/s)")
     private val ARIA2C_SPEED = Pattern.compile("\\bDL:([0-9.]+[A-Za-z]+)")
+
+    /** aria2c's summary line: "[#2089b0 40.0MiB/133.2MiB(30%) CN:8 DL:3.1MiB ETA:30s]". */
+    private val ARIA2C_PROGRESS = Pattern.compile(
+        "\\[#\\w+\\s+([0-9.]+[KMGT]?i?B)/([0-9.]+[KMGT]?i?B)\\((\\d+)%\\)" +
+            "(?:.*?ETA:((?:\\d+h)?(?:\\d+m)?(?:\\d+s)?))?",
+    )
+    private val ARIA2C_ETA = Pattern.compile("(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?")
+
+    /** yt-dlp's own line: "[download]  45.3% of ~ 120.00MiB at ...". */
+    private val YTDLP_TOTAL = Pattern.compile("\\[download\\]\\s+([0-9.]+)% of\\s+~?\\s*([0-9.]+)([KMGT]?i?B)")
+
+    /** Lines yt-dlp prints while it reads the page and works out the formats. */
+    private val READING_INFO = Pattern.compile(
+        "^\\[[\\w:]+\\] .*(Downloading|Extracting|Fetching|Solving)",
+    )
+    private val SUBTITLE_FILE = Pattern.compile("\\.(vtt|srt|ass|ttml|srv\\d|json3)$")
     private val FORMAT_COUNT = Pattern.compile("Downloading \\d+ format\\(s\\):\\s*(\\S+)")
     private val POST_PROCESSORS = listOf(
         "[Merger]", "[ExtractAudio]", "[VideoConvertor]", "[VideoRemuxer]",
@@ -566,7 +582,7 @@ object DownloadEngine {
         val taskId = request.taskId
         val pathFile = File(appContext.cacheDir, "savekit-$taskId.paths")
         var cookies: File? = null
-        val progress = ProgressTracker(taskId)
+        val progress = ProgressTracker(taskId, audioOnly = request.extractAudio)
 
         try {
             ensureInitialized()
@@ -752,20 +768,40 @@ object DownloadEngine {
     )
 
     /**
-     * Converts yt-dlp's output into throttled progress events. A merged download fetches
-     * several streams one after another, each reporting 0..100, so the percentage is scaled
-     * across the number of streams yt-dlp announced.
+     * Converts yt-dlp's output into throttled progress events with the stage the download
+     * is in. yt-dlp hands the file transfer to aria2c, whose progress lines differ from its
+     * own, so both are read. A merged download fetches the video and then the audio, each
+     * reporting 0..100; the overall percentage weighs the video more, being far larger.
+     *
+     * Stages: `connecting`, `info` (reading the page), `video`, `audio`, `file` (a single
+     * stream), `subtitles`, `merge`, `convert` and `finishing`.
      */
-    private class ProgressTracker(private val taskId: String) {
+    private class ProgressTracker(private val taskId: String, private val audioOnly: Boolean) {
         private var streamCount = 1
         private var streamIndex = 0
         private var speed = ""
         private var status = STATUS_STARTING
+        private var stage = "connecting"
+        private var sizeText = ""
+        private var eta = -1
         private var lastEmit = 0L
 
         @Volatile
         var lastPercent = 0.0
             private set
+
+        /** Share of the whole download each stream stands for, by position. */
+        private fun weights(): List<Double> = when {
+            streamCount == 2 && !audioOnly -> listOf(0.85, 0.15)
+            else -> List(streamCount) { 1.0 / streamCount }
+        }
+
+        private fun streamStage(): String = when {
+            audioOnly -> "audio"
+            streamCount == 1 -> "file"
+            streamIndex <= 1 -> "video"
+            else -> "audio"
+        }
 
         fun onOutput(rawPercent: Float, etaSeconds: Long, line: String) {
             val formatCount = FORMAT_COUNT.matcher(line)
@@ -773,15 +809,52 @@ object DownloadEngine {
                 streamCount = formatCount.group(1)!!.split('+').size.coerceAtLeast(1)
                 streamIndex = 0
             }
+            var streamPercent = if (rawPercent >= 0f) rawPercent.toDouble() else -1.0
+            eta = if (etaSeconds >= 0) etaSeconds.toInt() else eta
+
             if (line.startsWith("[download] Destination:")) {
-                streamIndex = (streamIndex + 1).coerceAtMost(streamCount)
+                if (SUBTITLE_FILE.matcher(line.trim()).find()) {
+                    stage = "subtitles"
+                } else {
+                    streamIndex = (streamIndex + 1).coerceAtMost(streamCount)
+                    stage = streamStage()
+                }
+                sizeText = ""
+            } else if (status == STATUS_STARTING && READING_INFO.matcher(line).find()) {
+                stage = "info"
             }
 
-            val processing = POST_PROCESSORS.any { line.startsWith(it) }
+            val aria = ARIA2C_PROGRESS.matcher(line)
+            if (aria.find()) {
+                streamPercent = aria.group(3)!!.toDouble()
+                sizeText = "${readableSize(aria.group(1)!!)} of ${readableSize(aria.group(2)!!)}"
+                eta = aria.group(4)?.let { parseAriaEta(it) } ?: eta
+                if (stage == "connecting" || stage == "info") stage = streamStage()
+            } else {
+                val own = YTDLP_TOTAL.matcher(line)
+                if (own.find()) {
+                    val total = own.group(2)!!.toDouble()
+                    val unit = own.group(3)!!
+                    val done = total * own.group(1)!!.toDouble() / 100
+                    sizeText = "${readableSize("%.1f$unit".format(java.util.Locale.US, done))} " +
+                        "of ${readableSize(own.group(2)!! + unit)}"
+                    if (stage == "connecting" || stage == "info") stage = streamStage()
+                }
+            }
+
+            val postProcessor = POST_PROCESSORS.firstOrNull { line.startsWith(it) }
+            if (postProcessor != null) {
+                stage = when (postProcessor) {
+                    "[Merger]" -> "merge"
+                    "[ExtractAudio]", "[VideoConvertor]" -> "convert"
+                    else -> "finishing"
+                }
+                sizeText = ""
+            }
             val newStatus = when {
-                processing -> STATUS_PROCESSING
+                postProcessor != null -> STATUS_PROCESSING
                 status == STATUS_PROCESSING -> STATUS_PROCESSING
-                rawPercent >= 0f -> STATUS_DOWNLOADING
+                streamPercent >= 0 && stage != "subtitles" -> STATUS_DOWNLOADING
                 else -> status
             }
 
@@ -794,20 +867,22 @@ object DownloadEngine {
 
             val percent = when {
                 newStatus == STATUS_PROCESSING -> 99.0
-                rawPercent < 0f -> lastPercent
+                streamPercent < 0 || stage == "subtitles" -> lastPercent
                 else -> {
-                    val finishedStreams = (streamIndex - 1).coerceAtLeast(0)
-                    val overall = (finishedStreams * 100.0 + rawPercent) / streamCount
+                    val shares = weights()
+                    val index = (streamIndex - 1).coerceIn(0, shares.size - 1)
+                    val before = shares.take(index).sum()
+                    val overall = (before + shares[index] * streamPercent / 100) * 100
                     // Never report backwards when a new stream restarts at 0%.
                     maxOf(lastPercent, overall.coerceIn(0.0, 99.0))
                 }
             }
 
             val now = SystemClock.elapsedRealtime()
-            val statusChanged = newStatus != status
+            val changed = newStatus != status
             status = newStatus
             lastPercent = percent
-            if (!statusChanged && now - lastEmit < PROGRESS_INTERVAL_MS) return
+            if (!changed && now - lastEmit < PROGRESS_INTERVAL_MS) return
             lastEmit = now
 
             emit(
@@ -816,9 +891,25 @@ object DownloadEngine {
                     status = status,
                     percent = percent,
                     speed = if (status == STATUS_PROCESSING) "" else speed,
-                    eta = if (status == STATUS_PROCESSING) -1 else etaSeconds.toInt(),
-                ),
+                    eta = if (status == STATUS_PROCESSING) -1 else eta,
+                ) + mapOf("stage" to stage, "sizeText" to sizeText),
             )
+        }
+
+        /** "40.0MiB" -> "40.0 MB": the units people know. */
+        private fun readableSize(raw: String): String {
+            val match = Regex("([0-9.]+)\\s*([KMGT]?)i?B").find(raw) ?: return raw
+            val unit = match.groupValues[2].ifEmpty { "" } + "B"
+            return "${match.groupValues[1]} $unit"
+        }
+
+        private fun parseAriaEta(text: String): Int? {
+            val match = ARIA2C_ETA.matcher(text)
+            if (!match.matches()) return null
+            val hours = match.group(1)?.toInt() ?: 0
+            val minutes = match.group(2)?.toInt() ?: 0
+            val seconds = match.group(3)?.toInt() ?: 0
+            return hours * 3600 + minutes * 60 + seconds
         }
     }
 

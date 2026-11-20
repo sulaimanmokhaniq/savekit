@@ -29,6 +29,8 @@ class DownloadTask {
     this.completedAt,
     this.savedToGallery = false,
     this.exported = const {},
+    this.stage = '',
+    this.sizeText = '',
   });
 
   /// Creates a queued task for [format] of the media described by [info].
@@ -89,6 +91,12 @@ class DownloadTask {
   /// downloads exported by older versions, whose copies are found by name.
   final Map<String, String> exported;
 
+  /// What a running download is doing right now (see
+  /// [DownloadProgress.stage]), and how much of its file has arrived. Not
+  /// stored: they only describe a download in progress.
+  final String stage;
+  final String sizeText;
+
   String? get filePath => filePaths.isEmpty ? null : filePaths.first;
   bool get isActive => status.isActive;
   bool get canResume => status == DownloadStatus.paused;
@@ -103,6 +111,8 @@ class DownloadTask {
       progressPercent: finished ? 100 : progress.progressPercent,
       speed: progress.speed,
       eta: progress.eta,
+      stage: progress.stage,
+      sizeText: progress.sizeText,
       filePaths: finished ? progress.filePaths : null,
       fileSize: finished ? progress.fileSize : null,
       error: progress.status == DownloadStatus.failed ? progress.error : null,
@@ -124,6 +134,8 @@ class DownloadTask {
     bool? savedToGallery,
     Map<String, String>? exported,
     bool? tonight,
+    String? stage,
+    String? sizeText,
   }) {
     return DownloadTask(
       id: id,
@@ -147,6 +159,8 @@ class DownloadTask {
       completedAt: completedAt ?? this.completedAt,
       savedToGallery: savedToGallery ?? this.savedToGallery,
       exported: exported ?? this.exported,
+      stage: stage ?? (status == null ? this.stage : ''),
+      sizeText: sizeText ?? (status == null ? this.sizeText : ''),
     );
   }
 

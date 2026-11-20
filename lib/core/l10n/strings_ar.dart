@@ -631,4 +631,18 @@ const arabicStrings = <String, String>{
   'Show all': 'عرض الكل',
   'No internet. Downloads carry on by themselves when the connection is back.':
       'لا يوجد إنترنت. ستُكمل التنزيلات تلقائيًا عند عودة الاتصال.',
+  'Reading the video’s details…': 'جارٍ قراءة تفاصيل الفيديو…',
+  'Downloading the video': 'جارٍ تنزيل الفيديو',
+  'Downloading the sound': 'جارٍ تنزيل الصوت',
+  'Downloading subtitles': 'جارٍ تنزيل الترجمة',
+  'Joining video and sound…': 'جارٍ دمج الفيديو والصوت…',
+  'Converting…': 'جارٍ التحويل…',
+  'Connecting…': 'جارٍ الاتصال…',
+  '1 download waiting': 'تنزيل واحد في الانتظار',
+  '{} downloads waiting': '{} تنزيلات في الانتظار',
+  'Starts when the internet is back': 'يبدأ عند عودة الإنترنت',
+  'Starts when the phone is charging on Wi-Fi':
+      'يبدأ عندما يكون الهاتف على الشاحن ومتصلًا بـ Wi-Fi',
+  'Starts when the phone is on Wi-Fi': 'يبدأ عند اتصال الهاتف بـ Wi-Fi',
+  'Starting soon': 'يبدأ قريبًا',
 };

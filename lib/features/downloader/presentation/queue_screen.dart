@@ -8,6 +8,7 @@ import '../../../core/widgets/platform_badge.dart';
 import '../application/download_queue_controller.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
+import '../domain/stage_label.dart';
 import '../../../core/errors/friendly_error.dart';
 import '../../../core/l10n/l10n.dart';
 
@@ -323,6 +324,8 @@ class _TaskCard extends ConsumerWidget {
   }
 }
 
+/// What a download is doing, in words: the stage on the first line with the
+/// percentage, and how much has arrived, the speed and the time left below.
 class _ProgressLine extends StatelessWidget {
   const _ProgressLine({required this.task});
 
@@ -330,37 +333,67 @@ class _ProgressLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String left;
-    final String right;
+    final percent = '${task.progressPercent.round()}%';
+    final String stage;
+    var right = '';
+    var details = <String>[];
+    var eta = '';
     switch (task.status) {
       case DownloadStatus.queued:
-        left = tr('Waiting…');
-        right = '';
+        stage = tr('Waiting…');
       case DownloadStatus.paused:
-        left = tr('Paused');
-        right = '${task.progressPercent.round()}%';
+        stage = tr('Paused');
+        right = percent;
       case DownloadStatus.starting:
-        left = tr('Starting…');
-        right = '';
+        stage = stageLabel(task.stage, starting: true);
       case DownloadStatus.processing:
-        left = tr('Finishing…');
-        right = '${task.progressPercent.round()}%';
+        stage = stageLabel(task.stage, starting: false);
+        right = percent;
       default:
-        left = [
-          '${task.progressPercent.round()}%',
-          if (task.speed.isNotEmpty) task.speed,
-        ].join(' · ');
-        right = formatEta(task.eta);
+        stage = stageLabel(task.stage, starting: false);
+        right = percent;
+        details = [
+          if (task.sizeText.isNotEmpty) task.sizeText,
+          // "4.8MiB/s" -> "4.8 MB/s": the units people know.
+          if (task.speed.isNotEmpty)
+            task.speed.replaceAllMapped(
+              RegExp(r'([0-9.]+)\s*([KMG]?)i?B/s'),
+              (m) => '${m[1]} ${m[2]}B/s',
+            ),
+        ];
+        eta = formatEta(task.eta);
     }
     final style = TextStyle(
       color: AppColors.textMuted,
       fontSize: 12.5,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Text(left, style: style)),
-        Text(right, style: style),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                stage,
+                style: style.copyWith(
+                  color: AppColors.text,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Text(right, style: style),
+          ],
+        ),
+        if (details.isNotEmpty || eta.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Expanded(child: Text(details.join(' · '), style: style)),
+              Text(eta, style: style),
+            ],
+          ),
+        ],
       ],
     );
   }

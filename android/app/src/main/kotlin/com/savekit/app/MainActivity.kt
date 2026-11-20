@@ -305,6 +305,7 @@ class MainActivity : AudioServiceFragmentActivity() {
                     title = call.argument<String>("title") ?: "Downloading",
                     text = call.argument<String>("text").orEmpty(),
                     progress = call.argument<Number>("progress")?.toInt() ?: -1,
+                    waiting = call.argument<Boolean>("waiting") ?: false,
                 )
                 result.success(null)
             }

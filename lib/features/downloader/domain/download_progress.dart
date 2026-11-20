@@ -40,6 +40,8 @@ class DownloadProgress {
     this.filePaths = const [],
     this.fileSize,
     this.error,
+    this.stage = '',
+    this.sizeText = '',
   });
 
   final String taskId;
@@ -64,6 +66,15 @@ class DownloadProgress {
   /// Reason, on [DownloadStatus.failed].
   final String? error;
 
+  /// What the download is doing: `connecting`, `info`, `video`, `audio`,
+  /// `file`, `subtitles`, `merge`, `convert` or `finishing`; empty when the
+  /// engine does not say.
+  final String stage;
+
+  /// How much of the current file has arrived, such as "40.0 MB of 133.2 MB";
+  /// empty when unknown.
+  final String sizeText;
+
   factory DownloadProgress.fromMap(Map<Object?, Object?> map) {
     return DownloadProgress(
       taskId: map['taskId'] as String? ?? '',
@@ -76,6 +87,8 @@ class DownloadProgress {
           (map['filePaths'] as List?)?.whereType<String>().toList() ?? const [],
       fileSize: (map['fileSize'] as num?)?.toInt(),
       error: map['error'] as String?,
+      stage: map['stage'] as String? ?? '',
+      sizeText: map['sizeText'] as String? ?? '',
     );
   }
 }

@@ -302,12 +302,14 @@ class YoutubeDlNativeService {
     String title = 'Downloading',
     String text = '',
     int progress = -1,
+    bool waiting = false,
   }) => _guard(
     () => _methods.invokeMethod<void>('updateDownloadService', {
       'activeCount': activeCount,
       'title': title,
       'text': text,
       'progress': progress,
+      'waiting': waiting,
     }),
   );
 

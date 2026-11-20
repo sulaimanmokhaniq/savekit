@@ -17,6 +17,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../extractor/domain/media_format.dart';
 import '../../extractor/domain/media_info.dart';
 import '../data/download_repository.dart';
+import '../domain/stage_label.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
 import '../../../core/l10n/l10n.dart';
@@ -48,6 +49,11 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   /// Downloads waiting a moment before trying again.
   final _coolingDown = <String>{};
   final _timers = <Timer>[];
+
+  /// When each running download started, and when its data began to arrive,
+  /// for the timing written to the log once it finishes.
+  final _startedAt = <String, DateTime>{};
+  final _dataAt = <String, DateTime>{};
 
   /// A download whose connection keeps failing while the phone says it is
   /// online (a weak network, or the site is down) fails after this many
@@ -120,7 +126,14 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     }
     restored.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    unawaited(Future<void>.microtask(_pump));
+    unawaited(
+      Future<void>.microtask(() async {
+        await _pump();
+        // Downloads restored as waiting (for the night, say) keep the app
+        // awake from the start.
+        if (ref.mounted) _syncService(force: true);
+      }),
+    );
     return restored;
   }
 
@@ -165,7 +178,13 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       _askedNotifications = true;
       unawaited(ref.read(notificationPermissionProvider)());
     }
-    unawaited(_pump());
+    unawaited(
+      _pump().then((_) {
+        // One that cannot start yet (for tonight, or no Wi-Fi) still keeps
+        // the app awake, or nothing would notice when it may.
+        if (ref.mounted && _starting.isEmpty) _syncService(force: true);
+      }),
+    );
     return id;
   }
 
@@ -536,6 +555,8 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       if (_blockedByWifi && !task.format.isConversion) return;
       if (current.tonight && !_nightReady) return;
       _replace(current.copyWith(status: DownloadStatus.starting));
+      _startedAt[id] = DateTime.now();
+      _dataAt.remove(id);
       _syncService(force: true);
 
       if (task.format.engine == DownloadEngineKind.direct) {
@@ -618,6 +639,10 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     }
     if (progress.status == DownloadStatus.completed) {
       _autoRetries.remove(task.id);
+      _logTiming(task, progress);
+    } else if (progress.status == DownloadStatus.downloading &&
+        progress.progressPercent > 0) {
+      _dataAt.putIfAbsent(task.id, DateTime.now);
     }
 
     final updated = task.applyProgress(progress);
@@ -638,6 +663,31 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     } else {
       _syncService(force: statusChanged);
     }
+  }
+
+  /// Writes how long a finished download took, and where the time went, to
+  /// the log a problem report includes.
+  void _logTiming(DownloadTask task, DownloadProgress progress) {
+    final started = _startedAt.remove(task.id);
+    final data = _dataAt.remove(task.id);
+    if (started == null || task.format.isConversion) return;
+    final now = DateTime.now();
+    final total = now.difference(started);
+    final reading = (data ?? now).difference(started);
+    final transfer = data == null ? null : now.difference(data);
+    final bytes = progress.fileSize ?? 0;
+    final speed =
+        transfer == null || transfer.inMilliseconds < 500 || bytes <= 0
+        ? ''
+        : ' · about ${(bytes / transfer.inMilliseconds * 1000 / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+    String seconds(Duration d) =>
+        '${(d.inMilliseconds / 1000).toStringAsFixed(1)}s';
+    AppLog.add(
+      'Downloaded: ${task.platform.id} · ${task.format.label}',
+      '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB in ${seconds(total)}'
+          ' (reading details ${seconds(reading)}'
+          '${transfer == null ? '' : ', transfer ${seconds(transfer)}'})$speed',
+    );
   }
 
   /// The connection dropped under [task]. With no connection at all it
@@ -793,7 +843,23 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     var title = tr('Downloading');
     var text = '';
     var progress = -1;
-    if (active.length == 1) {
+    // Nothing running or starting: every active download waits for the
+    // night, Wi-Fi or the internet. The service then only keeps the app
+    // awake, so it notices when they may start.
+    final waiting = active.isNotEmpty && running.isEmpty && _starting.isEmpty;
+    if (waiting) {
+      final tonight = active.where((task) => task.tonight).length;
+      title = active.length == 1
+          ? tr('1 download waiting')
+          : tr('${active.length} downloads waiting');
+      text = !_online
+          ? tr('Starts when the internet is back')
+          : tonight == active.length
+          ? tr('Starts when the phone is charging on Wi-Fi')
+          : _blockedByWifi
+          ? tr('Starts when the phone is on Wi-Fi')
+          : tr('Starting soon');
+    } else if (active.length == 1) {
       title = active.single.title;
       text = _describe(active.single);
       progress = active.single.progressPercent.round();
@@ -814,22 +880,23 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
             title: title,
             text: text,
             progress: progress,
+            waiting: waiting,
           )
           .catchError((_) {}),
     );
   }
 
   static String _describe(DownloadTask task) {
-    switch (task.status) {
-      case DownloadStatus.queued:
-      case DownloadStatus.starting:
-        return tr('Starting…');
-      case DownloadStatus.processing:
-        return tr('Finishing…');
-      default:
-        final percent = '${task.progressPercent.round()}%';
-        return task.speed.isEmpty ? percent : '$percent · ${task.speed}';
-    }
+    final stage = stageLabel(
+      task.stage,
+      starting: task.status == DownloadStatus.starting,
+    );
+    if (task.status != DownloadStatus.downloading) return stage;
+    return [
+      stage,
+      '${task.progressPercent.round()}%',
+      if (task.speed.isNotEmpty) task.speed,
+    ].join(' · ');
   }
 
   // endregion

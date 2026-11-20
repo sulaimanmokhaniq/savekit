@@ -73,7 +73,16 @@ class FakeNative implements YoutubeDlNativeService {
     String title = 'Downloading',
     String text = '',
     int progress = -1,
-  }) async => serviceCounts.add(activeCount);
+    bool waiting = false,
+  }) async {
+    serviceCounts.add(activeCount);
+    serviceWaiting.add(waiting);
+    serviceTexts.add(text);
+  }
+
+  /// Whether each service update was only waiting, and its text.
+  final serviceWaiting = <bool>[];
+  final serviceTexts = <String>[];
 
   @override
   Future<void> notifyDownloadFinished({
@@ -628,4 +637,25 @@ void main() {
       expect(task(id).status, DownloadStatus.failed);
     });
   });
+
+  test(
+    'downloads waiting for the night keep the app awake, then run',
+    () async {
+      final id = controller().enqueue(info('a'), video, tonight: true);
+      await settle();
+      expect(native.started, isEmpty);
+      // The service stays on, as a waiting one, so the app is not frozen.
+      expect(native.serviceCounts.last, 1);
+      expect(native.serviceWaiting.last, isTrue);
+      expect(
+        native.serviceTexts.last,
+        'Starts when the phone is charging on Wi-Fi',
+      );
+
+      controller().startNow(id);
+      await settle();
+      expect(native.started, [id]);
+      expect(native.serviceWaiting.last, isFalse);
+    },
+  );
 }

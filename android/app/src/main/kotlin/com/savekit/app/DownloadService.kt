@@ -26,11 +26,20 @@ class DownloadService : Service() {
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Downloading"
         val text = intent?.getStringExtra(EXTRA_TEXT).orEmpty()
         val progress = intent?.getIntExtra(EXTRA_PROGRESS, -1) ?: -1
-        val notification = buildProgressNotification(this, title, text, progress)
+        val waiting = intent?.getBooleanExtra(EXTRA_WAITING, false) ?: false
+        val notification = buildProgressNotification(this, title, text, progress, waiting)
 
         // startForeground must follow every startForegroundService call, including a stop.
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && waiting) {
+                // Only waiting (for the night, Wi-Fi or the internet): nothing transfers, so
+                // this is not a data sync, which Android stops after a few hours.
+                startForeground(
+                    PROGRESS_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
                     PROGRESS_NOTIFICATION_ID,
                     notification,
@@ -40,6 +49,7 @@ class DownloadService : Service() {
                 startForeground(PROGRESS_NOTIFICATION_ID, notification)
             }
             running = true
+            runningWaiting = waiting
         } catch (e: Exception) {
             Log.w(TAG, "Could not enter the foreground", e)
             running = false
@@ -50,6 +60,7 @@ class DownloadService : Service() {
         if (intent?.action == ACTION_STOP) {
             stopForegroundCompat()
             running = false
+            runningWaiting = false
             stopSelf()
         }
         return START_NOT_STICKY
@@ -86,6 +97,7 @@ class DownloadService : Service() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_TEXT = "text"
         private const val EXTRA_PROGRESS = "progress"
+        private const val EXTRA_WAITING = "waiting"
 
         private const val PROGRESS_CHANNEL = "downloads_progress"
         private const val FINISHED_CHANNEL = "downloads_finished"
@@ -94,11 +106,25 @@ class DownloadService : Service() {
         @Volatile
         private var running = false
 
+        /** Whether the service is in the foreground only to wait, not to transfer. */
+        @Volatile
+        private var runningWaiting = false
+
         /**
          * Starts, refreshes or stops the service. [activeCount] is the number of queued or
          * running downloads; zero stops it. [progress] is 0..100, or negative for unknown.
+         * [waiting] means none is running: they wait for the night, Wi-Fi or the internet.
+         * The process must stay alive meanwhile, or Android freezes it and nothing notices
+         * when they may start.
          */
-        fun update(context: Context, activeCount: Int, title: String, text: String, progress: Int) {
+        fun update(
+            context: Context,
+            activeCount: Int,
+            title: String,
+            text: String,
+            progress: Int,
+            waiting: Boolean = false,
+        ) {
             val appContext = context.applicationContext
             if (activeCount <= 0) {
                 stop(appContext)
@@ -108,12 +134,18 @@ class DownloadService : Service() {
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_TEXT, text)
                 .putExtra(EXTRA_PROGRESS, progress)
+                .putExtra(EXTRA_WAITING, waiting)
             try {
-                if (running) {
+                if (running && runningWaiting != waiting) {
+                    // Between waiting and transferring: enter the foreground again as the
+                    // other kind of service. The app already has a foreground service, so
+                    // Android allows this from the background too.
+                    appContext.startService(intent)
+                } else if (running) {
                     // Already in the foreground: only the notification needs refreshing.
                     notificationManager(appContext).notify(
                         PROGRESS_NOTIFICATION_ID,
-                        buildProgressNotification(appContext, title, text, progress),
+                        buildProgressNotification(appContext, title, text, progress, waiting),
                     )
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     appContext.startForegroundService(intent)
@@ -164,6 +196,7 @@ class DownloadService : Service() {
             title: String,
             text: String,
             progress: Int,
+            waiting: Boolean = false,
         ): Notification {
             ensureChannels(context)
             val builder = builder(context, PROGRESS_CHANNEL)
@@ -173,7 +206,7 @@ class DownloadService : Service() {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openAppIntent(context))
-                .setProgress(100, progress.coerceIn(0, 100), progress < 0)
+            if (!waiting) builder.setProgress(100, progress.coerceIn(0, 100), progress < 0)
             if (text.isNotEmpty()) builder.setContentText(text)
             return builder.build()
         }

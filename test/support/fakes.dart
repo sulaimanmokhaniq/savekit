@@ -132,6 +132,7 @@ class UiFakeNative implements YoutubeDlNativeService {
     String title = 'Downloading',
     String text = '',
     int progress = -1,
+    bool waiting = false,
   }) async {}
 
   @override

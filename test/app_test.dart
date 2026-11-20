@@ -672,12 +672,17 @@ void main() {
         progressPercent: 62,
         speed: '4.8MiB/s',
         eta: 14,
+        stage: 'video',
+        sizeText: '82.6 MB of 133.2 MB',
       ),
     );
     await settle(tester);
     await openTab(tester, 'Queue');
 
-    expect(find.text('62% · 4.8MiB/s'), findsOneWidget);
+    // What it is doing, how far, how much has arrived, how fast, how long.
+    expect(find.text('Downloading the video'), findsOneWidget);
+    expect(find.text('62%'), findsOneWidget);
+    expect(find.text('82.6 MB of 133.2 MB · 4.8 MB/s'), findsOneWidget);
     expect(find.text('14s left'), findsOneWidget);
     expect(find.text('Paused'), findsOneWidget);
     // The extractor's wording is replaced with a plain explanation.
