@@ -6,7 +6,6 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/device/device_service.dart';
 import '../../../core/log/app_log.dart';
 import '../../../core/native/youtube_dl_native_service.dart';
 import '../../../core/platform/media_platform.dart';
@@ -17,6 +16,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../extractor/domain/media_format.dart';
 import '../../extractor/domain/media_info.dart';
 import '../data/download_repository.dart';
+import '../../tonight/night_alarm.dart';
 import '../domain/stage_label.dart';
 import '../domain/download_progress.dart';
 import '../domain/download_task.dart';
@@ -100,11 +100,11 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       }
     });
     ref.listen(settingsControllerProvider, (_, _) => _onConditionsChanged());
-    _charging = ref.read(chargingProvider).value ?? false;
-    ref.listen(chargingProvider, (_, next) {
-      _charging = next.value ?? false;
-      _onConditionsChanged();
-    });
+    // Night downloads start when the night begins. The phone may be asleep
+    // then, so Android is asked to wake the app (see NightAlarm), and a
+    // timer checks while it is awake.
+    ref.listen(nightWakeProvider, (_, _) => _onConditionsChanged());
+    ref.onDispose(() => _nightTimer?.cancel());
 
     // A task stored as running belongs to a previous launch. Queue it again:
     // if its process is in fact still alive the engine says so and its
@@ -131,7 +131,10 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
         await _pump();
         // Downloads restored as waiting (for the night, say) keep the app
         // awake from the start.
-        if (ref.mounted) _syncService(force: true);
+        if (ref.mounted) {
+          _syncService(force: true);
+          _watchNight();
+        }
       }),
     );
     return restored;
@@ -161,7 +164,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       kind == MediaFormatKind.noWatermark ? MediaFormatKind.video : kind;
 
   /// Adds a download of [format] for the media in [info] and returns its id.
-  /// With [tonight], it waits until the phone is charging and on Wi-Fi.
+  /// With [tonight], it waits until the night, on Wi-Fi.
   String enqueue(MediaInfo info, MediaFormat format, {bool tonight = false}) {
     final id =
         '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
@@ -183,6 +186,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
         // One that cannot start yet (for tonight, or no Wi-Fi) still keeps
         // the app awake, or nothing would notice when it may.
         if (ref.mounted && _starting.isEmpty) _syncService(force: true);
+        if (ref.mounted && tonight) _watchNight();
       }),
     );
     return id;
@@ -320,10 +324,39 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
     if (!stopping) _stopping.remove(id);
   }
 
-  bool _charging = false;
+  Timer? _nightTimer;
 
-  /// Night downloads may run: charging, and on Wi-Fi.
-  bool get _nightReady => _charging && _onWifi;
+  /// Night downloads may run: it is night, and the phone is on Wi-Fi.
+  bool get _nightReady =>
+      _onWifi &&
+      ref.read(settingsControllerProvider).isNight(ref.read(clockProvider)());
+
+  /// While night downloads wait, checks again when the night begins (and
+  /// every few minutes, in case the clock or the phone's sleep moves it),
+  /// and asks Android to wake the app then.
+  void _watchNight() {
+    _nightTimer?.cancel();
+    _nightTimer = null;
+    final waiting = state.any(
+      (task) => task.tonight && task.status == DownloadStatus.queued,
+    );
+    final alarm = ref.read(nightAlarmProvider);
+    if (!waiting) {
+      unawaited(alarm.cancel());
+      return;
+    }
+    final now = ref.read(clockProvider)();
+    final settings = ref.read(settingsControllerProvider);
+    final start = settings.nextNightStart(now);
+    unawaited(alarm.wakeAt(start));
+    final untilStart = start.difference(now);
+    _nightTimer = Timer(
+      untilStart < const Duration(minutes: 5)
+          ? untilStart + const Duration(seconds: 1)
+          : const Duration(minutes: 5),
+      _onConditionsChanged,
+    );
+  }
 
   /// Starts a night download straight away instead of waiting.
   void startNow(String id) {
@@ -336,11 +369,13 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
   bool get _blockedByWifi =>
       (ref.read(settingsControllerProvider).wifiOnly && !_onWifi) || !_online;
 
-  /// Wi-Fi or charging came or went, or a download setting changed.
+  /// Wi-Fi came or went, the night began, or a download setting changed.
   void _onConditionsChanged() {
     if (!ref.mounted) return;
-    if (!_nightReady) {
-      // Unplugged or off Wi-Fi: night downloads go back to waiting.
+    _watchNight();
+    if (!_onWifi) {
+      // Off Wi-Fi: night downloads go back to waiting rather than use mobile
+      // data. Once started they are not stopped when the night ends.
       for (final task in [...state]) {
         if (task.tonight && task.status.isRunning) {
           unawaited(_halt(task, DownloadStatus.queued));
@@ -855,7 +890,7 @@ class DownloadQueueController extends Notifier<List<DownloadTask>> {
       text = !_online
           ? tr('Starts when the internet is back')
           : tonight == active.length
-          ? tr('Starts when the phone is charging on Wi-Fi')
+          ? nightStartText(ref.read(settingsControllerProvider))
           : _blockedByWifi
           ? tr('Starts when the phone is on Wi-Fi')
           : tr('Starting soon');

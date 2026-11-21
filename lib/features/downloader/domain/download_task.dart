@@ -69,7 +69,7 @@ class DownloadTask {
   /// The platform's own id for the media, used to spot a repeat download.
   final String? mediaId;
 
-  /// Waits until the phone is charging and on Wi-Fi before starting.
+  /// Waits until the night begins, on Wi-Fi, before starting.
   final bool tonight;
 
   final DownloadStatus status;

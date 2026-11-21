@@ -1,3 +1,6 @@
+import '../../../core/settings/app_settings.dart';
+import '../../tonight/night_alarm.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -268,7 +271,7 @@ class _TaskCard extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        tr('Waits until the phone is charging on Wi-Fi'),
+                        nightStartText(ref.watch(settingsControllerProvider)),
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 12.5,

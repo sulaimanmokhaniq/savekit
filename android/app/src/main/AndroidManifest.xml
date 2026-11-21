@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- Night downloads on an unplugged phone: Android's deep sleep cuts the network
+         unless the user lets SaveKit run in the background. Asked for on the Tonight screen. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
     <!-- Gallery export: only Android 9 and below need the legacy storage permission;
@@ -192,6 +195,11 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity-alias>
+
+        <!-- Wakes the app when the night begins, for night downloads. -->
+        <receiver
+            android:name=".NightWakeReceiver"
+            android:exported="false"/>
 
         <!-- Background audio playback: lock-screen controls and the media notification. -->
         <service

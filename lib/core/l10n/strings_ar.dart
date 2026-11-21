@@ -671,4 +671,15 @@ const arabicStrings = <String, String>{
   'Saved for tonight.': 'حُفظ لليلة.',
   'Nothing to download was found at this link.':
       'لم يُعثر على ما يمكن تنزيله في هذا الرابط.',
+  'Starts at {} on Wi-Fi': 'يبدأ الساعة {} على Wi-Fi',
+  'AM': 'ص',
+  'PM': 'م',
+  'Download tonight · from {}': 'نزّل الليلة · من {}',
+  'Share links to SaveKit during the day. They download by themselves tonight, on Wi-Fi, from the time you choose.': 'شارك الروابط إلى SaveKit خلال اليوم، وستُنزَّل تلقائيًا الليلة على Wi-Fi، من الوقت الذي تختاره.',
+  'Start at': 'وقت البدء',
+  'On Wi-Fi, from this time until morning. The phone does not need to be charging.':
+      'على Wi-Fi، من هذا الوقت حتى الصباح. لا يلزم أن يكون الهاتف على الشاحن.',
+  'Let SaveKit run in the background': 'اسمح لـ SaveKit بالعمل في الخلفية',
+  'When the phone is not charging, Android puts it into deep sleep at night and can cut the internet. Allow SaveKit to keep running so tonight’s downloads finish.': 'عندما لا يكون الهاتف على الشاحن، يُدخله أندرويد في نوم عميق ليلًا وقد يقطع الإنترنت. اسمح لـ SaveKit بالاستمرار في العمل حتى تكتمل تنزيلات الليلة.',
+  'Allow': 'سماح',
 };

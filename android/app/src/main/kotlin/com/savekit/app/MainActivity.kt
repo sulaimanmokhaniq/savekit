@@ -38,6 +38,7 @@ import java.io.File
  *  - listStatuses(), statusThumbnail(uri, size), importStatuses(uris, outputDir)
  *  - pickPhoneMedia()                                -> photos/videos picked, with where they live
  *  - importPhoneMedia(uris, outputDir)              -> copies of them in the app's folder
+ *  - scheduleNightWake(at), cancelNightWake()        wakes the app when the night begins
  *  - setSplashTheme(theme)                          next launch's splash in that theme's colours
  *  - keepScreenOn(on)                               keeps the display awake while on
  *  - scanSpace()                                    -> photos and videos, copies, look-alikes
@@ -64,6 +65,7 @@ class MainActivity : AudioServiceFragmentActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
         engineChannel = MethodChannel(messenger, ENGINE_CHANNEL).also { channel ->
+            liveChannel = channel
             channel.setMethodCallHandler { call, result -> handleCall(call, result) }
         }
 
@@ -83,6 +85,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         engineChannel?.setMethodCallHandler(null)
         progressChannel?.setStreamHandler(null)
+        liveChannel = null
         engineChannel = null
         progressChannel = null
         DownloadEngine.setProgressSink(null)
@@ -449,6 +452,40 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
             }
 
+            "runsInBackground" -> {
+                val power = getSystemService(android.os.PowerManager::class.java)
+                result.success(power?.isIgnoringBatteryOptimizations(packageName) ?: true)
+            }
+
+            "allowInBackground" -> {
+                try {
+                    @android.annotation.SuppressLint("BatteryLife")
+                    val intent = Intent(
+                        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:$packageName"),
+                    )
+                    startActivity(intent)
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            }
+
+            "scheduleNightWake" -> {
+                val at = call.argument<Number>("at")?.toLong()
+                if (at == null) {
+                    result.error(ERROR_BAD_ARGS, "scheduleNightWake requires 'at'.", null)
+                    return
+                }
+                NightWake.schedule(applicationContext, at)
+                result.success(true)
+            }
+
+            "cancelNightWake" -> {
+                NightWake.cancel(applicationContext)
+                result.success(true)
+            }
+
             "setSplashTheme" -> {
                 // Android 13+ remembers this and draws the next launch's splash in the
                 // theme's colours; older versions keep the default splash.
@@ -545,6 +582,10 @@ class MainActivity : AudioServiceFragmentActivity() {
     }
 
     companion object {
+        /** The engine channel while the app's Flutter side is running; for [NightWake]. */
+        @Volatile
+        var liveChannel: MethodChannel? = null
+
         const val ENGINE_CHANNEL = "com.app.downloader/engine"
         const val PROGRESS_CHANNEL = "com.app.downloader/progress"
         private const val ERROR_BAD_ARGS = "BAD_ARGS"

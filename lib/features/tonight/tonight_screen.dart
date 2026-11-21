@@ -1,3 +1,5 @@
+import 'night_alarm.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -14,7 +16,7 @@ import '../downloader/domain/download_task.dart';
 import 'tonight_controller.dart';
 
 /// Tonight's list: links collected during the day, downloaded by themselves
-/// at night when the phone is charging on Wi-Fi.
+/// at night, on Wi-Fi, from the time the user chose.
 class TonightScreen extends ConsumerWidget {
   const TonightScreen({super.key});
 
@@ -55,7 +57,7 @@ class TonightScreen extends ConsumerWidget {
           Text(
             tr(
               'Share links to SaveKit during the day. They download by '
-              'themselves tonight, when the phone is charging on Wi-Fi.',
+              'themselves tonight, on Wi-Fi, from the time you choose.',
             ),
             style: TextStyle(color: AppColors.textMuted, height: 1.4),
           ),
@@ -126,9 +128,89 @@ class TonightScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    Icons.schedule_rounded,
+                    color: AppColors.textMuted,
+                  ),
+                  title: Text(tr('Start at')),
+                  subtitle: Text(
+                    tr(
+                      'On Wi-Fi, from this time until morning. The phone '
+                      'does not need to be charging.',
+                    ),
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  trailing: Text(
+                    formatNightStart(settings.nightStart),
+                    style: TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(
+                        hour: settings.nightStart ~/ 60,
+                        minute: settings.nightStart % 60,
+                      ),
+                    );
+                    if (picked != null) {
+                      settingsController.setNightStart(
+                        picked.hour * 60 + picked.minute,
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ),
+          if (ref.watch(runsInBackgroundProvider).value == false) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('Let SaveKit run in the background'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr(
+                      'When the phone is not charging, Android puts it into '
+                      'deep sleep at night and can cut the internet. Allow '
+                      'SaveKit to keep running so tonight’s downloads finish.',
+                    ),
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: () async {
+                      await ref.read(backgroundPermissionProvider).request();
+                      ref.invalidate(runsInBackgroundProvider);
+                    },
+                    child: Text(tr('Allow')),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           if (empty)
             Padding(
@@ -170,7 +252,7 @@ class TonightScreen extends ConsumerWidget {
 }
 
 /// When tonight's downloads will start.
-class _Status extends StatelessWidget {
+class _Status extends ConsumerWidget {
   const _Status({
     required this.count,
     required this.running,
@@ -182,7 +264,7 @@ class _Status extends StatelessWidget {
   final bool online;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
         Icon(
@@ -206,7 +288,7 @@ class _Status extends StatelessWidget {
               if (!running)
                 Text(
                   online
-                      ? tr('Starts when the phone is charging on Wi-Fi')
+                      ? nightStartText(ref.watch(settingsControllerProvider))
                       : tr('Links are read once the phone is online'),
                   style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
                 ),

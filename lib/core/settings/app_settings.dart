@@ -87,6 +87,7 @@ class AppSettings {
     this.onboarded = false,
     this.shareToTonight = false,
     this.tonightQuality = QualityPreference.best,
+    this.nightStart = defaultNightStart,
   });
 
   /// Id of the selected [AppPalette].
@@ -138,6 +139,33 @@ class AppSettings {
   /// Quality of the downloads on tonight's list. Never "ask".
   final QualityPreference tonightQuality;
 
+  /// When the night begins for night downloads, in minutes after midnight.
+  /// They may start from then until [nightLength] later, on Wi-Fi.
+  final int nightStart;
+
+  static const defaultNightStart = 23 * 60;
+  static const nightLength = Duration(hours: 8);
+
+  /// Whether [time] falls in the night that starts at [nightStart].
+  bool isNight(DateTime time) {
+    final minutes = time.hour * 60 + time.minute;
+    final sinceStart = (minutes - nightStart) % (24 * 60);
+    return sinceStart < nightLength.inMinutes;
+  }
+
+  /// The next moment the night begins, after [time].
+  DateTime nextNightStart(DateTime time) {
+    var start = DateTime(
+      time.year,
+      time.month,
+      time.day,
+      nightStart ~/ 60,
+      nightStart % 60,
+    );
+    if (!start.isAfter(time)) start = start.add(const Duration(days: 1));
+    return start;
+  }
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -158,6 +186,7 @@ class AppSettings {
     bool? onboarded,
     bool? shareToTonight,
     QualityPreference? tonightQuality,
+    int? nightStart,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     iconId: iconId ?? this.iconId,
@@ -177,6 +206,7 @@ class AppSettings {
     onboarded: onboarded ?? this.onboarded,
     shareToTonight: shareToTonight ?? this.shareToTonight,
     tonightQuality: tonightQuality ?? this.tonightQuality,
+    nightStart: (nightStart ?? this.nightStart) % (24 * 60),
   );
 
   Map<String, dynamic> toMap() => {
@@ -195,6 +225,7 @@ class AppSettings {
     'onboarded': onboarded,
     'shareToTonight': shareToTonight,
     'tonightQuality': tonightQuality.id,
+    'nightStart': nightStart,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -230,6 +261,8 @@ class AppSettings {
       QualityPreference.ask => QualityPreference.best,
       final quality => quality,
     },
+    nightStart:
+        ((map['nightStart'] as num?)?.toInt() ?? defaultNightStart) % (24 * 60),
   );
 }
 
@@ -348,6 +381,7 @@ class SettingsController extends Notifier<AppSettings> {
   void finishOnboarding() => _set(state.copyWith(onboarded: true));
   void setShareToTonight(bool value) =>
       _set(state.copyWith(shareToTonight: value));
+  void setNightStart(int minutes) => _set(state.copyWith(nightStart: minutes));
   void setTonightQuality(QualityPreference value) => _set(
     state.copyWith(
       tonightQuality: value == QualityPreference.ask

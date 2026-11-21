@@ -1,3 +1,5 @@
+import '../../../core/settings/app_settings.dart';
+import '../../tonight/night_alarm.dart';
 import '../../tonight/tonight_controller.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -242,7 +244,7 @@ class _PickerState extends ConsumerState<_Picker> {
 
   bool get _canAddSubtitles => _tab == _Tab.video && info.hasSubtitles;
 
-  /// With [tonight], the download waits until the phone is charging on Wi-Fi.
+  /// With [tonight], the download waits until the night begins, on Wi-Fi.
   Future<void> _download({bool tonight = false}) async {
     final clip = _canTrim ? _clip : null;
     final subtitles = _canAddSubtitles ? _subtitles : null;
@@ -409,7 +411,12 @@ class _PickerState extends ConsumerState<_Picker> {
               ? null
               : () => _download(tonight: true),
           icon: const Icon(Icons.bedtime_outlined, size: 18),
-          label: Text(tr('Download tonight · when charging on Wi-Fi')),
+          label: Text(
+            tr(
+              'Download tonight · from '
+              '${formatNightStart(ref.watch(settingsControllerProvider).nightStart)}',
+            ),
+          ),
         ),
       ],
     );

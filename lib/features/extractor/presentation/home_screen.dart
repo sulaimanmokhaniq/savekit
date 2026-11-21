@@ -1,3 +1,5 @@
+import '../../../core/settings/app_settings.dart';
+import '../../tonight/night_alarm.dart';
 import '../../tonight/tonight_controller.dart';
 import '../../tonight/tonight_screen.dart';
 
@@ -603,7 +605,9 @@ class _TonightCard extends ConsumerWidget {
                             )
                           : running
                           ? tr('Downloading now')
-                          : tr('Starts when the phone is charging on Wi-Fi'),
+                          : nightStartText(
+                              ref.watch(settingsControllerProvider),
+                            ),
                       style: TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12.5,

@@ -20,6 +20,8 @@ import 'package:savekit/features/downloader/domain/download_task.dart';
 import 'package:savekit/features/extractor/domain/media_format.dart';
 import 'package:savekit/features/extractor/domain/media_info.dart';
 
+import 'package:savekit/features/tonight/night_alarm.dart';
+
 import 'support/fakes.dart' show FakeConnectivity;
 
 class FakeNative implements YoutubeDlNativeService {
@@ -186,12 +188,17 @@ void main() {
   var notificationRequests = 0;
   late FakeConnectivity connectivity;
   late AppSettings settings;
+  late DateTime now;
+  late FakeNightAlarm alarm;
 
   ProviderContainer createContainer() {
     final created = ProviderContainer(
       overrides: [
         nativeServiceProvider.overrideWithValue(native),
         chargingProvider.overrideWith((ref) => Stream.value(false)),
+        // Midday unless a test says otherwise: not the night.
+        clockProvider.overrideWithValue(() => now),
+        nightAlarmProvider.overrideWithValue(alarm),
         connectivityServiceProvider.overrideWithValue(connectivity),
         settingsRepositoryProvider.overrideWithValue(
           InMemorySettingsRepository(settings),
@@ -221,6 +228,8 @@ void main() {
     native = FakeNative();
     connectivity = FakeConnectivity();
     settings = const AppSettings();
+    now = DateTime(2026, 11, 21, 12);
+    alarm = FakeNightAlarm();
     direct = FakeDirect();
     gallery = FakeGallery();
     repository = InMemoryDownloadRepository();
@@ -647,10 +656,7 @@ void main() {
       // The service stays on, as a waiting one, so the app is not frozen.
       expect(native.serviceCounts.last, 1);
       expect(native.serviceWaiting.last, isTrue);
-      expect(
-        native.serviceTexts.last,
-        'Starts when the phone is charging on Wi-Fi',
-      );
+      expect(native.serviceTexts.last, 'Starts at 11:00 PM on Wi-Fi');
 
       controller().startNow(id);
       await settle();
@@ -658,4 +664,79 @@ void main() {
       expect(native.serviceWaiting.last, isFalse);
     },
   );
+
+  group('night downloads', () {
+    test('start at night on Wi-Fi, without charging', () async {
+      final id = controller().enqueue(info('a'), video, tonight: true);
+      await settle();
+      expect(native.started, isEmpty);
+      // Android is asked to wake the app when the night begins.
+      expect(alarm.wakes.last, DateTime(2026, 11, 21, 23));
+
+      // The night begins; the phone is not charging (see the override).
+      now = DateTime(2026, 11, 21, 23, 0, 5);
+      container.read(nightWakeProvider.notifier).woke();
+      await settle();
+      expect(native.started, [id]);
+    });
+
+    test('wait for Wi-Fi when the night comes without it', () async {
+      await settle();
+      connectivity.setWifi(false);
+      await settle();
+      now = DateTime(2026, 11, 22, 1);
+      final id = controller().enqueue(info('a'), video, tonight: true);
+      await settle();
+      expect(native.started, isEmpty);
+
+      connectivity.setWifi(true);
+      await settle();
+      expect(native.started, [id]);
+    });
+
+    test('nothing to wait for cancels the wake-up', () async {
+      final id = controller().enqueue(info('a'), video, tonight: true);
+      await settle();
+      controller().startNow(id);
+      await settle();
+      expect(native.started, [id]);
+      // No other night download waits.
+      container.read(nightWakeProvider.notifier).woke();
+      await settle();
+      expect(alarm.canceled, greaterThan(0));
+    });
+  });
+
+  test('the night runs from its start for eight hours', () {
+    const settings = AppSettings(nightStart: 23 * 60);
+    expect(settings.isNight(DateTime(2026, 1, 1, 22, 59)), isFalse);
+    expect(settings.isNight(DateTime(2026, 1, 1, 23)), isTrue);
+    expect(settings.isNight(DateTime(2026, 1, 2, 3)), isTrue);
+    expect(settings.isNight(DateTime(2026, 1, 2, 6, 59)), isTrue);
+    expect(settings.isNight(DateTime(2026, 1, 2, 7)), isFalse);
+    expect(
+      settings.nextNightStart(DateTime(2026, 1, 1, 12)),
+      DateTime(2026, 1, 1, 23),
+    );
+    expect(
+      settings.nextNightStart(DateTime(2026, 1, 1, 23, 30)),
+      DateTime(2026, 1, 2, 23),
+    );
+    // A night that starts after midnight.
+    const late = AppSettings(nightStart: 60);
+    expect(late.isNight(DateTime(2026, 1, 1, 0, 30)), isFalse);
+    expect(late.isNight(DateTime(2026, 1, 1, 8, 59)), isTrue);
+    expect(AppSettings.fromMap(late.toMap()).nightStart, 60);
+  });
+}
+
+class FakeNightAlarm implements NightAlarm {
+  final wakes = <DateTime>[];
+  var canceled = 0;
+
+  @override
+  Future<void> wakeAt(DateTime time) async => wakes.add(time);
+
+  @override
+  Future<void> cancel() async => canceled++;
 }

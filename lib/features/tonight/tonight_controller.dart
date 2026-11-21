@@ -107,7 +107,7 @@ final tonightRepositoryProvider = Provider<TonightRepository>(
 );
 
 /// Tonight's list: links collected during the day that download by
-/// themselves at night, when the phone is charging on Wi-Fi.
+/// themselves at night, on Wi-Fi.
 ///
 /// A saved link is read straight away in the background (it only takes a
 /// moment) and becomes a night download in the queue at the chosen quality,
