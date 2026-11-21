@@ -85,6 +85,8 @@ class AppSettings {
     this.saveLocation = SaveLocation.gallery,
     this.language = AppLanguage.system,
     this.onboarded = false,
+    this.shareToTonight = false,
+    this.tonightQuality = QualityPreference.best,
   });
 
   /// Id of the selected [AppPalette].
@@ -129,6 +131,13 @@ class AppSettings {
   /// The welcome screens have been seen.
   final bool onboarded;
 
+  /// Links shared to the app go straight to tonight's list instead of the
+  /// picker.
+  final bool shareToTonight;
+
+  /// Quality of the downloads on tonight's list. Never "ask".
+  final QualityPreference tonightQuality;
+
   static const defaultThemeId = 'ember';
   static const minConcurrent = 1;
   static const maxConcurrentLimit = 5;
@@ -147,6 +156,8 @@ class AppSettings {
     SaveLocation? saveLocation,
     AppLanguage? language,
     bool? onboarded,
+    bool? shareToTonight,
+    QualityPreference? tonightQuality,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     iconId: iconId ?? this.iconId,
@@ -164,6 +175,8 @@ class AppSettings {
     saveLocation: saveLocation ?? this.saveLocation,
     language: language ?? this.language,
     onboarded: onboarded ?? this.onboarded,
+    shareToTonight: shareToTonight ?? this.shareToTonight,
+    tonightQuality: tonightQuality ?? this.tonightQuality,
   );
 
   Map<String, dynamic> toMap() => {
@@ -180,6 +193,8 @@ class AppSettings {
     'saveLocation': saveLocation.id,
     'language': language.id,
     'onboarded': onboarded,
+    'shareToTonight': shareToTonight,
+    'tonightQuality': tonightQuality.id,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -208,6 +223,13 @@ class AppSettings {
     // Anyone with saved settings from before the welcome screens existed
     // has used the app already.
     onboarded: map['onboarded'] as bool? ?? true,
+    shareToTonight: map['shareToTonight'] as bool? ?? false,
+    tonightQuality: switch (QualityPreference.fromId(
+      map['tonightQuality'] as String?,
+    )) {
+      QualityPreference.ask => QualityPreference.best,
+      final quality => quality,
+    },
   );
 }
 
@@ -324,6 +346,15 @@ class SettingsController extends Notifier<AppSettings> {
   void setVaultGrid(bool value) => _set(state.copyWith(vaultGrid: value));
   void setLanguage(AppLanguage value) => _set(state.copyWith(language: value));
   void finishOnboarding() => _set(state.copyWith(onboarded: true));
+  void setShareToTonight(bool value) =>
+      _set(state.copyWith(shareToTonight: value));
+  void setTonightQuality(QualityPreference value) => _set(
+    state.copyWith(
+      tonightQuality: value == QualityPreference.ask
+          ? QualityPreference.best
+          : value,
+    ),
+  );
   void setSaveLocation(SaveLocation value) =>
       _set(state.copyWith(saveLocation: value));
   void setAutoUpdate(bool value) => _set(state.copyWith(autoUpdate: value));

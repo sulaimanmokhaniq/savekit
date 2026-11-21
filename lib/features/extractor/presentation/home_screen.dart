@@ -1,3 +1,6 @@
+import '../../tonight/tonight_controller.dart';
+import '../../tonight/tonight_screen.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -226,7 +229,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             engine: engine,
             onRetry: () => ref.invalidate(engineControllerProvider),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 18),
+          const _TonightCard(),
+          const SizedBox(height: 24),
           Text(
             tr('WORKS WITH'),
             style: TextStyle(
@@ -537,6 +542,80 @@ class _BatchBanner extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tonight's list, on Home: how many links wait for the night, or what the
+/// list is for while it is empty.
+class _TonightCard extends ConsumerWidget {
+  const _TonightCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(tonightCountProvider);
+    final running = ref
+        .watch(tonightTasksProvider)
+        .any((task) => task.status.isRunning);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const TonightScreen())),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceHigh,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.bedtime_outlined, color: AppColors.accent),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      count == 0
+                          ? tr('Tonight')
+                          : count == 1
+                          ? tr('Tonight · 1 link')
+                          : tr('Tonight · $count links'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      count == 0
+                          ? tr(
+                              'Save links during the day; they download by '
+                              'themselves at night.',
+                            )
+                          : running
+                          ? tr('Downloading now')
+                          : tr('Starts when the phone is charging on Wi-Fi'),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+            ],
+          ),
         ),
       ),
     );

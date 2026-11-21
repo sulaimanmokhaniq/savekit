@@ -1,3 +1,5 @@
+import '../../tonight/tonight_controller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -13,7 +15,7 @@ import '../../../core/errors/friendly_error.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// What happened in the picker.
-enum FormatPickerResult { queued, openAccounts, openVault }
+enum FormatPickerResult { queued, openAccounts, openVault, savedForTonight }
 
 /// Looks up [url] and shows the format picker for it. Resolves to
 /// [FormatPickerResult.queued] when a download was added,
@@ -92,6 +94,18 @@ class _Loading extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 14),
+          // No need to wait: tonight's list reads the link by itself.
+          Consumer(
+            builder: (context, ref, _) => TextButton.icon(
+              onPressed: () {
+                ref.read(tonightProvider.notifier).add(url);
+                Navigator.of(context).pop(FormatPickerResult.savedForTonight);
+              },
+              icon: const Icon(Icons.bedtime_outlined, size: 18),
+              label: Text(tr('Save for tonight instead')),
+            ),
           ),
         ],
       ),

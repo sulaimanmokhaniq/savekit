@@ -645,4 +645,30 @@ const arabicStrings = <String, String>{
       'يبدأ عندما يكون الهاتف على الشاحن ومتصلًا بـ Wi-Fi',
   'Starts when the phone is on Wi-Fi': 'يبدأ عند اتصال الهاتف بـ Wi-Fi',
   'Starting soon': 'يبدأ قريبًا',
+  'Tonight': 'الليلة',
+  'Download all now': 'نزّل الكل الآن',
+  'Share links to SaveKit during the day. They download by themselves tonight, when the phone is charging on Wi-Fi.': 'شارك الروابط إلى SaveKit خلال اليوم، وستُنزَّل تلقائيًا الليلة عندما يكون الهاتف على الشاحن ومتصلًا بـ Wi-Fi.',
+  'Shared links come here': 'الروابط المُشارَكة تأتي إلى هنا',
+  'Sharing a link to SaveKit saves it for tonight, without asking for a quality.':
+      'مشاركة رابط إلى SaveKit تحفظه لليلة دون السؤال عن الجودة.',
+  'Quality': 'الجودة',
+  'For links saved from now on.': 'للروابط التي تُحفظ من الآن.',
+  'Nothing for tonight yet': 'لا شيء لليلة بعد',
+  'In any app, tap Share and choose SaveKit. Or open a link here and choose Save for tonight.': 'في أي تطبيق، اضغط مشاركة واختر SaveKit. أو افتح رابطًا هنا واختر «احفظ لليلة».',
+  'Downloading now': 'جارٍ التنزيل الآن',
+  '1 waiting': 'واحد في الانتظار',
+  '{} waiting': '{} في الانتظار',
+  'Links are read once the phone is online':
+      'تُقرأ الروابط عند اتصال الهاتف بالإنترنت',
+  'Reading the link…': 'جارٍ قراءة الرابط…',
+  'Read once the phone is online': 'يُقرأ عند اتصال الهاتف بالإنترنت',
+  'Waiting to be read': 'في انتظار القراءة',
+  'Tonight · 1 link': 'الليلة · رابط واحد',
+  'Tonight · {} links': 'الليلة · {} روابط',
+  'Save links during the day; they download by themselves at night.':
+      'احفظ الروابط خلال اليوم، وستُنزَّل تلقائيًا في الليل.',
+  'Save for tonight instead': 'احفظ لليلة بدلًا من ذلك',
+  'Saved for tonight.': 'حُفظ لليلة.',
+  'Nothing to download was found at this link.':
+      'لم يُعثر على ما يمكن تنزيله في هذا الرابط.',
 };

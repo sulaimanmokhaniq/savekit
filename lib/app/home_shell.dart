@@ -13,6 +13,8 @@ import '../features/extractor/presentation/account_screen.dart';
 import '../features/extractor/presentation/batch_sheet.dart';
 import '../features/extractor/presentation/format_picker_sheet.dart';
 import '../features/extractor/presentation/home_screen.dart';
+import '../features/tonight/tonight_controller.dart';
+import '../features/tonight/tonight_screen.dart';
 import '../features/tools/presentation/tools_screen.dart';
 import '../features/vault/presentation/vault_screen.dart';
 import '../core/l10n/l10n.dart';
@@ -81,6 +83,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         _select(_settings);
       case FormatPickerResult.openVault:
         _select(_vault);
+      case FormatPickerResult.savedForTonight:
+        _showSavedForTonight();
       case null:
         break;
     }
@@ -150,6 +154,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       _openAccount(url);
       return;
     }
+    // Tonight's list collects shared links without asking anything.
+    if (ref.read(settingsControllerProvider).shareToTonight) {
+      ref.read(tonightProvider.notifier).add(url);
+      _showSavedForTonight();
+      return;
+    }
     // One-tap download: queue at the saved quality without asking. The Home
     // banner shows the outcome, and offers the picker if the link fails.
     final oneTap = ref.read(settingsControllerProvider).oneTap;
@@ -160,8 +170,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     }
   }
 
+  void _showSavedForTonight() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(tr('Saved for tonight.')),
+          action: SnackBarAction(
+            label: tr('View'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const TonightScreen()),
+            ),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Tonight's list reads its links in the background while the app runs.
+    ref.watch(tonightProvider);
     // A link shared from another app opens the picker straight away.
     ref.listen(incomingLinkControllerProvider.select((links) => links.shared), (
       _,
