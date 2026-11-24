@@ -167,6 +167,7 @@ class WebPageExtractor {
               ? tr('${platform.label} post')
               : tr('Post by $author')),
       uploader: author,
+      caption: snapshot.title,
       platform: platform,
       thumbnail: items
           .map((item) => item.thumbnail)

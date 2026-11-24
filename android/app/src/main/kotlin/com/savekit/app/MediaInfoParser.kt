@@ -86,6 +86,8 @@ object MediaInfoParser {
                 ?: media.optStringOrNull("uploader_id")
                 ?: root.optStringOrNull("uploader")),
             "thumbnail" to thumbnailOf(media),
+            "caption" to captionOf(media),
+            "postedAt" to postedAtOf(media),
             "duration" to media.optDoubleOrNull("duration")?.toInt(),
             "platform" to platform,
             "extractor" to media.optStringOrNull("extractor_key"),
@@ -374,6 +376,29 @@ object MediaInfoParser {
             "hasAudio" to hasAudio,
         )
     }
+
+    /** The post's text (description or caption), kept for searching the Vault. */
+    private fun captionOf(media: JSONObject): String? {
+        val text = media.optStringOrNull("description")?.trim() ?: return null
+        if (text.isEmpty()) return null
+        return if (text.length > MAX_CAPTION) text.take(MAX_CAPTION) else text
+    }
+
+    /** When the post was published, in milliseconds since 1970; null when unknown. */
+    private fun postedAtOf(media: JSONObject): Long? {
+        media.optDoubleOrNull("timestamp")?.let { return (it * 1000).toLong() }
+        val day = media.optStringOrNull("upload_date") ?: return null
+        if (day.length != 8 || !day.all { it.isDigit() }) return null
+        return try {
+            java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.parse(day)?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private const val MAX_CAPTION = 5000
 
     private fun JSONObject.optStringOrNull(key: String): String? {
         if (!has(key) || isNull(key)) return null

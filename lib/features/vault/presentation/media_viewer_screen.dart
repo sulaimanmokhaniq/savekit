@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'post_details_sheet.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 
@@ -91,6 +93,11 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 tooltip: tr('Show all'),
                 icon: const Icon(Icons.grid_view_rounded),
               ),
+            IconButton(
+              onPressed: () => showPostDetails(context, widget.task),
+              tooltip: tr('Post details'),
+              icon: const Icon(Icons.info_outline_rounded),
+            ),
             if (!_grid)
               IconButton(
                 onPressed: files.isEmpty

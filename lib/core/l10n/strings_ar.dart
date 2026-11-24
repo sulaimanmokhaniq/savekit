@@ -682,4 +682,12 @@ const arabicStrings = <String, String>{
   'Let SaveKit run in the background': 'اسمح لـ SaveKit بالعمل في الخلفية',
   'When the phone is not charging, Android puts it into deep sleep at night and can cut the internet. Allow SaveKit to keep running so tonight’s downloads finish.': 'عندما لا يكون الهاتف على الشاحن، يُدخله أندرويد في نوم عميق ليلًا وقد يقطع الإنترنت. اسمح لـ SaveKit بالاستمرار في العمل حتى تكتمل تنزيلات الليلة.',
   'Allow': 'سماح',
+  'Posted {}': 'نُشر {}',
+  'Saved {}': 'حُفظ {}',
+  'This post had no text, or the site did not share it.':
+      'لا يوجد نص لهذا المنشور، أو لم يشاركه الموقع.',
+  'Text copied': 'نُسخ النص',
+  'Copy text': 'نسخ النص',
+  'Open the original post': 'فتح المنشور الأصلي',
+  'Post details': 'تفاصيل المنشور',
 };

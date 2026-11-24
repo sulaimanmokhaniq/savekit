@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/text/search_text.dart';
 import '../../../core/platform/media_platform.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/app_theme.dart';
@@ -259,13 +260,18 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     ];
     // A filter whose last item was deleted falls back to "All".
     final filter = platforms.contains(_filter) ? _filter : null;
-    final query = _query.trim().toLowerCase();
+    final query = _query.trim();
     final tasks = _sorted([
       for (final task in all)
         if ((filter == null || task.platform == filter) &&
-            (query.isEmpty ||
-                task.title.toLowerCase().contains(query) ||
-                (task.uploader?.toLowerCase().contains(query) ?? false)))
+            // Titles on social media say little; the post's own text,
+            // its author and where it came from are searched too.
+            matchesSearch(query, [
+              task.title,
+              task.uploader,
+              task.caption,
+              task.platform.label,
+            ]))
           task,
     ], settings.vaultSort);
     final selected = [

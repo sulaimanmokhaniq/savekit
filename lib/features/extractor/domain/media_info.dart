@@ -40,6 +40,8 @@ class MediaInfo {
     this.webpageUrl,
     this.uploader,
     this.thumbnail,
+    this.caption,
+    this.postedAt,
     this.duration,
     this.entryCount = 0,
     this.videoOptions = const [],
@@ -59,6 +61,12 @@ class MediaInfo {
   final String? webpageUrl;
   final String? uploader;
   final String? thumbnail;
+
+  /// The post's own text (description or caption), when the site gives it.
+  final String? caption;
+
+  /// When the post was published, when the site says.
+  final DateTime? postedAt;
 
   /// Length in seconds, for video and audio.
   final int? duration;
@@ -120,6 +128,12 @@ class MediaInfo {
       webpageUrl: map['webpageUrl'] as String?,
       uploader: map['uploader'] as String?,
       thumbnail: map['thumbnail'] as String?,
+      caption: map['caption'] as String?,
+      postedAt: map['postedAt'] is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (map['postedAt'] as num).toInt(),
+            )
+          : null,
       duration: (map['duration'] as num?)?.toInt(),
       entryCount: (map['entryCount'] as num?)?.toInt() ?? 0,
       videoOptions: formats('videoOptions'),

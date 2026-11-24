@@ -56,6 +56,10 @@ object GalleryEngine {
         val uploader: String?,
         val platform: String,
         val items: List<Item>,
+        /** The post's full text, for searching the Vault. */
+        val caption: String? = null,
+        /** When the post was published, in milliseconds since 1970. */
+        val postedAt: Long? = null,
     ) {
         val imageCount: Int get() = items.count { !it.isVideo }
         val videoCount: Int get() = items.count { it.isVideo }
@@ -301,7 +305,31 @@ object GalleryEngine {
             uploader = uploaderOf(meta),
             platform = platformOf(meta.string("category").orEmpty()),
             items = items,
+            caption = captionOf(meta),
+            postedAt = postedAtOf(meta),
         )
+    }
+
+    private fun captionOf(meta: JSONObject): String? {
+        val text = (meta.string("description")
+            ?: meta.string("content")
+            ?: meta.string("caption")
+            ?: meta.string("desc")
+            ?: meta.string("title"))?.trim() ?: return null
+        if (text.isEmpty()) return null
+        return if (text.length > 5000) text.take(5000) else text
+    }
+
+    /** gallery-dl writes dates as "2026-11-20 14:03:00", in UTC. */
+    private fun postedAtOf(meta: JSONObject): Long? {
+        val text = meta.string("date") ?: return null
+        return try {
+            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.parse(text.trim().take(19))?.time
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun titleOf(meta: JSONObject): String? {

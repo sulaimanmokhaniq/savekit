@@ -513,7 +513,18 @@ object DownloadEngine {
             mapOf("galleryOption" to null, "galleryItems" to emptyList<Map<String, Any?>>())
         }
 
-        if (video != null) return video + galleryFields
+        if (video != null) {
+            // A post's text often comes only from gallery-dl (photo posts with a video).
+            val extra = buildMap<String, Any?> {
+                if (video["caption"] == null && gallery?.caption != null) {
+                    put("caption", gallery.caption)
+                }
+                if (video["postedAt"] == null && gallery?.postedAt != null) {
+                    put("postedAt", gallery.postedAt)
+                }
+            }
+            return video + galleryFields + extra
+        }
 
         val photos = gallery!!
         return mapOf(
@@ -522,6 +533,8 @@ object DownloadEngine {
             "webpageUrl" to url,
             "title" to (photos.title ?: photos.uploader?.let { "Post by $it" } ?: "Untitled"),
             "uploader" to photos.uploader,
+            "caption" to photos.caption,
+            "postedAt" to photos.postedAt,
             "thumbnail" to photos.items.firstNotNullOfOrNull { it.thumbnail },
             "duration" to null,
             "platform" to photos.platform,

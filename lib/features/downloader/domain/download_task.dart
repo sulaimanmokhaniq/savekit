@@ -18,6 +18,8 @@ class DownloadTask {
     this.thumbnail,
     this.duration,
     this.mediaId,
+    this.caption,
+    this.postedAt,
     this.tonight = false,
     this.status = DownloadStatus.queued,
     this.progressPercent = 0,
@@ -51,6 +53,8 @@ class DownloadTask {
       thumbnail: info.thumbnail,
       duration: info.duration,
       mediaId: info.id,
+      caption: info.caption,
+      postedAt: info.postedAt,
     );
   }
 
@@ -68,6 +72,12 @@ class DownloadTask {
 
   /// The platform's own id for the media, used to spot a repeat download.
   final String? mediaId;
+
+  /// The post's own text, for searching the Vault; null when unknown.
+  final String? caption;
+
+  /// When the post was published, when the site said.
+  final DateTime? postedAt;
 
   /// Waits until the night begins, on Wi-Fi, before starting.
   final bool tonight;
@@ -148,6 +158,8 @@ class DownloadTask {
       thumbnail: thumbnail,
       duration: duration,
       mediaId: mediaId,
+      caption: caption,
+      postedAt: postedAt,
       tonight: tonight ?? this.tonight,
       status: status ?? this.status,
       progressPercent: progressPercent ?? this.progressPercent,
@@ -186,6 +198,8 @@ class DownloadTask {
     'completedAt': completedAt?.millisecondsSinceEpoch,
     'savedToGallery': savedToGallery,
     'exported': exported,
+    'caption': caption,
+    'postedAt': postedAt?.millisecondsSinceEpoch,
   };
 
   factory DownloadTask.fromMap(Map<Object?, Object?> source) {
@@ -206,6 +220,12 @@ class DownloadTask {
       thumbnail: map['thumbnail'] as String?,
       duration: (map['duration'] as num?)?.toInt(),
       mediaId: map['mediaId'] as String?,
+      caption: map['caption'] as String?,
+      postedAt: map['postedAt'] is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (map['postedAt'] as num).toInt(),
+            )
+          : null,
       tonight: map['tonight'] as bool? ?? false,
       status: DownloadStatus.fromName(map['status'] as String?),
       progressPercent: (map['progressPercent'] as num?)?.toDouble() ?? 0,
