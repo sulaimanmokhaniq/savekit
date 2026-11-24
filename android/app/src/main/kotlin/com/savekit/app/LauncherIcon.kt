@@ -11,7 +11,7 @@ import android.content.pm.PackageManager
  */
 object LauncherIcon {
 
-    private val THEMES = listOf("ember", "vault", "pulse", "tide", "classic", "rose", "gold", "lime")
+    private val THEMES = listOf("ember", "vault", "pulse", "tide", "classic", "rose", "gold", "lime", "calculator")
 
     private fun component(context: Context, theme: String) = ComponentName(
         context,

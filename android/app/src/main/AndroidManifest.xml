@@ -196,6 +196,21 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- The calculator disguise: replaces the SaveKit entry on the home screen when the
+             user turns it on. It deliberately offers no share target. -->
+        <activity-alias
+            android:name=".LauncherCalculator"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_calculator"
+            android:label="Calculator">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+
         <!-- Wakes the app when the night begins, for night downloads. -->
         <receiver
             android:name=".NightWakeReceiver"

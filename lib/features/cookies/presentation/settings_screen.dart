@@ -1,3 +1,5 @@
+import '../../disguise/calculator_screen.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -58,6 +60,52 @@ class SettingsScreen extends ConsumerWidget {
 
   /// Turning the lock on or off itself needs a successful unlock, so the
   /// setting cannot be changed by someone who merely holds the phone.
+  Future<void> _startDisguise(BuildContext context, WidgetRef ref) async {
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => const _DisguiseCodeDialog(),
+    );
+    if (code == null || !context.mounted) return;
+    // Already open: enabling it should not lock the user out right away.
+    ref.read(disguiseUnlockedProvider.notifier).unlock();
+    ref.read(settingsControllerProvider.notifier).setDisguise(code);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            'Done. On the home screen SaveKit is now a calculator; it can '
+            'take a few seconds to change.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _endDisguise(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(tr('Show SaveKit again?')),
+        content: Text(
+          tr('The calculator goes and SaveKit’s own icon comes back.'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(tr('Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(tr('Show SaveKit')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(settingsControllerProvider.notifier).setDisguise(null);
+    }
+  }
+
   Future<void> _setVaultLock(
     BuildContext context,
     WidgetRef ref,
@@ -194,6 +242,27 @@ class SettingsScreen extends ConsumerWidget {
               title: Text(tr('Lock the Vault')),
               subtitle: Text(
                 tr('Ask for fingerprint, face or screen lock to open it.'),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            child: SwitchListTile(
+              value: settings.disguised,
+              onChanged: (value) => value
+                  ? _startDisguise(context, ref)
+                  : _endDisguise(context, ref),
+              secondary: Icon(
+                Icons.calculate_outlined,
+                color: AppColors.textMuted,
+              ),
+              title: Text(tr('Disguise as a calculator')),
+              subtitle: Text(
+                tr(
+                  'SaveKit looks and works like a calculator. Type your secret '
+                  'code, then =, to open it.',
+                ),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
               ),
             ),
@@ -787,6 +856,97 @@ class _ChoiceRow<T> extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Chooses the calculator's secret code: 4 to 8 digits, typed twice.
+class _DisguiseCodeDialog extends StatefulWidget {
+  const _DisguiseCodeDialog();
+
+  @override
+  State<_DisguiseCodeDialog> createState() => _DisguiseCodeDialogState();
+}
+
+class _DisguiseCodeDialogState extends State<_DisguiseCodeDialog> {
+  final _code = TextEditingController();
+  final _again = TextEditingController();
+  String? _problem;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _again.dispose();
+    super.dispose();
+  }
+
+  void _done() {
+    final code = _code.text.trim();
+    if (!RegExp(r'^\d{4,8}$').hasMatch(code)) {
+      setState(() => _problem = tr('Use 4 to 8 digits.'));
+    } else if (_again.text.trim() != code) {
+      setState(() => _problem = tr('The two codes are not the same.'));
+    } else {
+      Navigator.of(context).pop(code);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    InputDecoration field(String hint) =>
+        InputDecoration(hintText: hint, counterText: '');
+    return AlertDialog(
+      title: Text(tr('Choose a secret code')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr(
+              'To open SaveKit, type this code on the calculator and press =. '
+              'If you forget it, hold = to use your fingerprint or screen lock '
+              'instead.',
+            ),
+            style: TextStyle(color: AppColors.textMuted, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _code,
+            autofocus: true,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 8,
+            decoration: field(tr('Secret code')),
+          ),
+          TextField(
+            controller: _again,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 8,
+            decoration: field(tr('Type it again')),
+            onSubmitted: (_) => _done(),
+          ),
+          if (_problem != null) ...[
+            const SizedBox(height: 8),
+            Text(_problem!, style: TextStyle(color: AppColors.danger)),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            tr(
+              'Notifications and the phone’s app list still say SaveKit, and '
+              'links cannot be shared to it while it is a calculator.',
+            ),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(tr('Cancel')),
+        ),
+        TextButton(onPressed: _done, child: Text(tr('Turn on'))),
+      ],
     );
   }
 }

@@ -20,4 +20,7 @@
     <color name="splash_background_rose">#120B0F</color>
     <color name="splash_background_gold">#0F0E09</color>
     <color name="splash_background_lime">#0B1A1F</color>
+    <!-- The calculator disguise. -->
+    <color name="calculator_background">#2B2F36</color>
+    <color name="splash_background_calculator">#1C1E22</color>
 </resources>

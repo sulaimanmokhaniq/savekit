@@ -8,6 +8,7 @@ import '../core/l10n/material_localizations_ar.dart';
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import '../features/onboarding/welcome_screen.dart';
+import '../features/disguise/calculator_screen.dart';
 import 'home_shell.dart';
 import 'opening_splash.dart';
 
@@ -26,6 +27,22 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
   /// Whether the opening logo animation is still showing.
   bool _opening = true;
 
+  late final AppLifecycleListener _lifecycle;
+  DateTime? _hiddenAt;
+
+  /// Disguised, the app goes back to the calculator after a minute away. A
+  /// shorter absence, such as picking a file, keeps it open.
+  void _relockIfAway() {
+    final hiddenAt = _hiddenAt;
+    _hiddenAt = null;
+    if (hiddenAt == null || !ref.read(settingsControllerProvider).disguised) {
+      return;
+    }
+    if (DateTime.now().difference(hiddenAt) > const Duration(minutes: 1)) {
+      ref.read(disguiseUnlockedProvider.notifier).lock();
+    }
+  }
+
   Locale _resolveLocale(AppLanguage language) =>
       language.resolve(WidgetsBinding.instance.platformDispatcher.locale);
 
@@ -43,12 +60,22 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
     final settings = ref.read(settingsControllerProvider);
     ref.read(launcherIconProvider)(settings.launcherIconId);
     // And the next launch's splash with the theme.
-    ref.read(splashThemeProvider)(settings.themeId);
+    ref.read(splashThemeProvider)(settings.splashId);
+    if (settings.disguised) {
+      ref.read(taskLabelProvider)('Calculator');
+      // A calculator opens without SaveKit's logo.
+      _opening = false;
+    }
+    _lifecycle = AppLifecycleListener(
+      onHide: () => _hiddenAt = DateTime.now(),
+      onShow: _relockIfAway,
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _lifecycle.dispose();
     super.dispose();
   }
 
@@ -101,6 +128,11 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
     final onboarded = ref.watch(
       settingsControllerProvider.select((settings) => settings.onboarded),
     );
+    final locked =
+        ref.watch(
+          settingsControllerProvider.select((settings) => settings.disguised),
+        ) &&
+        !ref.watch(disguiseUnlockedProvider);
 
     return MaterialApp(
       title: 'SaveKit',
@@ -115,7 +147,11 @@ class _SaveKitAppState extends ConsumerState<SaveKitApp>
       ],
       // Colours switch at once rather than fading through mixed states.
       themeAnimationDuration: Duration.zero,
-      home: onboarded ? const HomeShell() : const WelcomeScreen(),
+      home: locked
+          ? const CalculatorScreen()
+          : onboarded
+          ? const HomeShell()
+          : const WelcomeScreen(),
       builder: (context, child) => Stack(
         children: [
           ?child,

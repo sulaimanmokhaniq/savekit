@@ -471,6 +471,28 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
             }
 
+            "setTaskLabel" -> {
+                // The name shown for the app in recent apps: "Calculator" while disguised.
+                val label = call.argument<String>("label") ?: "SaveKit"
+                val disguised = label != "SaveKit"
+                // Disguised, recent apps shows a blank card instead of SaveKit's screen.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    setRecentsScreenshotEnabled(!disguised)
+                }
+                try {
+                    @Suppress("DEPRECATION")
+                    setTaskDescription(
+                        android.app.ActivityManager.TaskDescription(
+                            label,
+                            if (disguised) calculatorBitmap() else null,
+                        ),
+                    )
+                } catch (e: Exception) {
+                    // Cosmetic.
+                }
+                result.success(true)
+            }
+
             "scheduleNightWake" -> {
                 val at = call.argument<Number>("at")?.toLong()
                 if (at == null) {
@@ -570,6 +592,22 @@ class MainActivity : AudioServiceFragmentActivity() {
         }
     }
 
+    /** The calculator icon as a picture (it is an adaptive icon, not a bitmap). */
+    private fun calculatorBitmap(): android.graphics.Bitmap? = try {
+        val drawable = getDrawable(R.mipmap.ic_launcher_calculator)
+        drawable?.let {
+            val bitmap = android.graphics.Bitmap.createBitmap(
+                192, 192, android.graphics.Bitmap.Config.ARGB_8888,
+            )
+            val canvas = android.graphics.Canvas(bitmap)
+            it.setBounds(0, 0, 192, 192)
+            it.draw(canvas)
+            bitmap
+        }
+    } catch (e: Exception) {
+        null
+    }
+
     private fun splashStyle(theme: String): Int = when (theme) {
         "vault" -> R.style.Splash_Vault
         "pulse" -> R.style.Splash_Pulse
@@ -578,6 +616,7 @@ class MainActivity : AudioServiceFragmentActivity() {
         "rose" -> R.style.Splash_Rose
         "gold" -> R.style.Splash_Gold
         "lime" -> R.style.Splash_Lime
+        "calculator" -> R.style.Splash_Calculator
         else -> R.style.Splash_Ember
     }
 

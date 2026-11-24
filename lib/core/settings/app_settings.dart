@@ -88,6 +88,7 @@ class AppSettings {
     this.shareToTonight = false,
     this.tonightQuality = QualityPreference.best,
     this.nightStart = defaultNightStart,
+    this.disguiseCode,
   });
 
   /// Id of the selected [AppPalette].
@@ -100,7 +101,12 @@ class AppSettings {
   static const iconMatchesTheme = 'match';
 
   /// The palette id whose icon the home screen should show.
-  String get launcherIconId => iconId == iconMatchesTheme ? themeId : iconId;
+  String get launcherIconId => disguised
+      ? 'calculator'
+      : (iconId == iconMatchesTheme ? themeId : iconId);
+
+  /// The splash the next launch shows: the theme's, or the calculator's.
+  String get splashId => disguised ? 'calculator' : themeId;
 
   /// Quality used when a link is shared to the app; [QualityPreference.ask]
   /// opens the picker instead.
@@ -142,6 +148,12 @@ class AppSettings {
   /// When the night begins for night downloads, in minutes after midnight.
   /// They may start from then until [nightLength] later, on Wi-Fi.
   final int nightStart;
+
+  /// The secret code that opens the app while it is disguised as a
+  /// calculator; null when it is not disguised.
+  final String? disguiseCode;
+
+  bool get disguised => disguiseCode != null;
 
   static const defaultNightStart = 23 * 60;
   static const nightLength = Duration(hours: 8);
@@ -187,6 +199,8 @@ class AppSettings {
     bool? shareToTonight,
     QualityPreference? tonightQuality,
     int? nightStart,
+    String? disguiseCode,
+    bool clearDisguise = false,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     iconId: iconId ?? this.iconId,
@@ -207,6 +221,7 @@ class AppSettings {
     shareToTonight: shareToTonight ?? this.shareToTonight,
     tonightQuality: tonightQuality ?? this.tonightQuality,
     nightStart: (nightStart ?? this.nightStart) % (24 * 60),
+    disguiseCode: clearDisguise ? null : (disguiseCode ?? this.disguiseCode),
   );
 
   Map<String, dynamic> toMap() => {
@@ -226,6 +241,7 @@ class AppSettings {
     'shareToTonight': shareToTonight,
     'tonightQuality': tonightQuality.id,
     'nightStart': nightStart,
+    'disguiseCode': disguiseCode,
   };
 
   factory AppSettings.fromMap(Map<Object?, Object?> map) => AppSettings(
@@ -263,6 +279,7 @@ class AppSettings {
     },
     nightStart:
         ((map['nightStart'] as num?)?.toInt() ?? defaultNightStart) % (24 * 60),
+    disguiseCode: map['disguiseCode'] as String?,
   );
 }
 
@@ -340,6 +357,19 @@ final splashThemeProvider = Provider<Future<void> Function(String themeId)>(
   },
 );
 
+/// Sets the app's name in the recent-apps screen (Calculator while
+/// disguised); a seam for tests.
+final taskLabelProvider = Provider<Future<void> Function(String label)>(
+  (ref) => (label) async {
+    try {
+      await const MethodChannel('com.app.downloader/engine')
+          .invokeMethod<void>('setTaskLabel', {'label': label});
+    } catch (_) {
+      // Cosmetic.
+    }
+  },
+);
+
 /// Overridden in `main()` with the opened Hive repository.
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => InMemorySettingsRepository(),
@@ -357,7 +387,20 @@ class SettingsController extends Notifier<AppSettings> {
   void setTheme(String themeId) {
     _set(state.copyWith(themeId: themeId));
     _syncIcon();
-    ref.read(splashThemeProvider)(themeId);
+    ref.read(splashThemeProvider)(state.splashId);
+  }
+
+  /// Disguises the app as a calculator that opens with [code], or, with
+  /// null, shows it as SaveKit again.
+  void setDisguise(String? code) {
+    _set(
+      code == null
+          ? state.copyWith(clearDisguise: true)
+          : state.copyWith(disguiseCode: code),
+    );
+    _syncIcon();
+    ref.read(splashThemeProvider)(state.splashId);
+    ref.read(taskLabelProvider)(state.disguised ? 'Calculator' : 'SaveKit');
   }
 
   /// [iconId] is a palette id, or [AppSettings.iconMatchesTheme].

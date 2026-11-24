@@ -59,4 +59,11 @@
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_lime</item>
         <item name="android:windowBackground">@color/splash_background_lime</item>
     </style>
+
+    <style name="Splash.Calculator" parent="LaunchTheme">
+        <item name="android:windowSplashScreenBackground">@color/splash_background_calculator</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo_calculator</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/calculator_background</item>
+        <item name="android:windowBackground">@color/splash_background_calculator</item>
+    </style>
 </resources>

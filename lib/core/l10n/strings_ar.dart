@@ -707,4 +707,20 @@ const arabicStrings = <String, String>{
   'Save as a clip': 'احفظ كمقطع',
   'The moments you marked in videos and audio, with your notes. Jump back to them, or save one as a clip.': 'اللحظات التي حفظتها في الفيديوهات والصوتيات مع ملاحظاتك. عُد إليها، أو احفظ إحداها كمقطع.',
   'Clip · {} s': 'مقطع · {} ث',
+  'Disguise as a calculator': 'التمويه كآلة حاسبة',
+  'SaveKit looks and works like a calculator. Type your secret code, then =, to open it.':
+      'يبدو SaveKit ويعمل كآلة حاسبة. اكتب رمزك السري ثم = لفتحه.',
+  'Done. On the home screen SaveKit is now a calculator; it can take a few seconds to change.': 'تم. أصبح SaveKit آلة حاسبة على الشاشة الرئيسية، وقد يستغرق التغيير بضع ثوانٍ.',
+  'Show SaveKit again?': 'إظهار SaveKit مجددًا؟',
+  'The calculator goes and SaveKit’s own icon comes back.':
+      'تختفي الآلة الحاسبة وتعود أيقونة SaveKit.',
+  'Show SaveKit': 'إظهار SaveKit',
+  'Use 4 to 8 digits.': 'استخدم من 4 إلى 8 أرقام.',
+  'The two codes are not the same.': 'الرمزان غير متطابقين.',
+  'Choose a secret code': 'اختر رمزًا سريًا',
+  'To open SaveKit, type this code on the calculator and press =. If you forget it, hold = to use your fingerprint or screen lock instead.': 'لفتح SaveKit، اكتب هذا الرمز على الآلة الحاسبة واضغط =. إذا نسيته، اضغط مطولًا على = لاستخدام البصمة أو قفل الشاشة.',
+  'Secret code': 'الرمز السري',
+  'Type it again': 'اكتبه مرة أخرى',
+  'Notifications and the phone’s app list still say SaveKit, and links cannot be shared to it while it is a calculator.': 'الإشعارات وقائمة تطبيقات الهاتف ستظل تُظهر SaveKit، ولا يمكن مشاركة الروابط إليه وهو في وضع الآلة الحاسبة.',
+  'Turn on': 'تفعيل',
 };
