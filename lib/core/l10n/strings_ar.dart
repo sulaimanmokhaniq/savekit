@@ -690,4 +690,21 @@ const arabicStrings = <String, String>{
   'Copy text': 'نسخ النص',
   'Open the original post': 'فتح المنشور الأصلي',
   'Post details': 'تفاصيل المنشور',
+  'Moment at {}': 'لحظة عند {}',
+  'A note, if you like (optional)': 'ملاحظة إن أردت (اختيارية)',
+  'Moment saved. Find it in Tools → Moments.':
+      'حُفظت اللحظة. تجدها في الأدوات ← اللحظات.',
+  'Mark this moment': 'احفظ هذه اللحظة',
+  'Note': 'ملاحظة',
+  'Clip length, from this moment': 'طول المقطع، من هذه اللحظة',
+  'Making the clip. It lands in the Vault, ready to share.':
+      'جارٍ صنع المقطع. سيظهر في الخزنة جاهزًا للمشاركة.',
+  'Moments': 'اللحظات',
+  'No moments yet': 'لا توجد لحظات بعد',
+  'While a video or audio plays, tap the bookmark button to mark the moment, with a note if you like.': 'أثناء تشغيل فيديو أو صوت، اضغط زر الإشارة لحفظ اللحظة، مع ملاحظة إن أردت.',
+  'No note': 'بلا ملاحظة',
+  'Edit note': 'تعديل الملاحظة',
+  'Save as a clip': 'احفظ كمقطع',
+  'The moments you marked in videos and audio, with your notes. Jump back to them, or save one as a clip.': 'اللحظات التي حفظتها في الفيديوهات والصوتيات مع ملاحظاتك. عُد إليها، أو احفظ إحداها كمقطع.',
+  'Clip · {} s': 'مقطع · {} ث',
 };

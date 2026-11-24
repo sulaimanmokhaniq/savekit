@@ -192,7 +192,11 @@ class AudioPlayerController extends Notifier<PlayerView> {
   }
 
   /// Plays [tracks] from [startAt], resuming that file where it was left.
-  Future<void> play(List<Track> tracks, int startAt) async {
+  Future<void> play(
+    List<Track> tracks,
+    int startAt, {
+    Duration? position,
+  }) async {
     final existing = tracks.where((t) => File(t.path).existsSync()).toList();
     if (existing.isEmpty) return;
     final wanted = tracks[startAt.clamp(0, tracks.length - 1)];
@@ -224,7 +228,7 @@ class AudioPlayerController extends Notifier<PlayerView> {
       ],
       [for (final track in existing) AudioSource.file(track.path)],
       initialIndex: start,
-      initialPosition: _resumePoint(existing[start].path),
+      initialPosition: position ?? _resumePoint(existing[start].path),
     );
     await player.play();
   }

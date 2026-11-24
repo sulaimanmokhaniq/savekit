@@ -14,6 +14,7 @@ import java.util.regex.Pattern
  *               with the picture's shorter side reduced to `shortSide` pixels
  *  - `gif`      turn `length` seconds from `start` into an animated GIF
  *  - `frame`    save the picture at `at` seconds as a JPEG
+ *  - `clip`     copy `length` seconds from `start` (video or audio), without re-encoding
  *
  * Nothing is uploaded. [DownloadEngine] must have initialised FFmpeg first.
  */
@@ -110,6 +111,30 @@ object EditorEngine {
                             "fps=12,scale=480:-1:flags=lanczos,split[a][b];" +
                                 "[a]palettegen[p];[b][p]paletteuse",
                             "-loop", "0", output.absolutePath,
+                        ),
+                        knownDuration = length,
+                        onProgress = onProgress,
+                    )
+                    listOf(output)
+                }
+                "clip" -> {
+                    // A short piece, copied as it is (no re-encoding): quick, and the
+                    // cut lands on the nearest keyframe, a second or two out at most.
+                    val start = options["start"]?.toDoubleOrNull() ?: 0.0
+                    val length = (options["length"]?.toDoubleOrNull() ?: 30.0)
+                        .coerceIn(1.0, 600.0)
+                    val extension = input.extension.ifEmpty { "mp4" }
+                    val output = File(
+                        work,
+                        "$base clip ${seconds(start).replace('.', '_')}.$extension",
+                    )
+                    run(
+                        context, taskId,
+                        listOf(
+                            "-ss", seconds(start), "-t", seconds(length),
+                            "-i", input.absolutePath,
+                            "-map", "0", "-c", "copy", "-avoid_negative_ts", "make_zero",
+                            output.absolutePath,
                         ),
                         knownDuration = length,
                         onProgress = onProgress,

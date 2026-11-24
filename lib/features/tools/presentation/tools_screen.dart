@@ -7,6 +7,7 @@ import '../application/storage_controller.dart';
 import '../../player/audio_player_screen.dart';
 import '../../transfer/transfer_screen.dart';
 import '../../vault/presentation/feed_screen.dart';
+import '../../moments/moments_screen.dart';
 import 'converter_screen.dart';
 import 'space_saver_screen.dart';
 import 'editor_screen.dart';
@@ -71,6 +72,16 @@ class ToolsScreen extends ConsumerWidget {
               'Save photos and videos from statuses you have viewed.',
             ),
             onTap: () => _open(context, const StatusSaverScreen()),
+          ),
+          const SizedBox(height: 10),
+          _ToolCard(
+            icon: Icons.bookmarks_outlined,
+            title: tr('Moments'),
+            subtitle: tr(
+              'The moments you marked in videos and audio, with your notes. '
+              'Jump back to them, or save one as a clip.',
+            ),
+            onTap: () => _open(context, const MomentsScreen()),
           ),
           const SizedBox(height: 10),
           _ToolCard(

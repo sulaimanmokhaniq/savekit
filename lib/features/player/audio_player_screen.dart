@@ -1,3 +1,5 @@
+import '../moments/mark_moment.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:material_ui/material_ui.dart';
@@ -12,10 +14,13 @@ import 'player_handler.dart';
 /// The audio player: every audio file in the Vault as a playlist, with the
 /// file playing now on top. Playback continues with the screen off.
 class AudioPlayerScreen extends ConsumerStatefulWidget {
-  const AudioPlayerScreen({super.key, this.startPath});
+  const AudioPlayerScreen({super.key, this.startPath, this.startAt});
 
   /// A file to start playing straight away (opened from the Vault).
   final String? startPath;
+
+  /// Where to start [startPath] (from a moment); its saved place when null.
+  final Duration? startAt;
 
   @override
   ConsumerState<AudioPlayerScreen> createState() => _AudioPlayerScreenState();
@@ -34,7 +39,9 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
         final tracks = ref.read(audioTracksProvider);
         final index = tracks.indexWhere((track) => track.path == start);
         if (index >= 0) {
-          ref.read(audioPlayerProvider.notifier).play(tracks, index);
+          ref
+              .read(audioPlayerProvider.notifier)
+              .play(tracks, index, position: widget.startAt);
         }
       });
     }
@@ -82,6 +89,17 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         actions: [
+          if (current != null)
+            IconButton(
+              onPressed: () => markMoment(
+                context,
+                ref,
+                path: current.path,
+                position: controller.player.position,
+              ),
+              tooltip: tr('Mark this moment'),
+              icon: const Icon(Icons.bookmark_add_outlined),
+            ),
           if (current != null)
             IconButton(
               onPressed: controller.stop,

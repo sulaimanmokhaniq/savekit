@@ -3,6 +3,10 @@ import 'dart:typed_data';
 
 import 'post_details_sheet.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../moments/mark_moment.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 
@@ -21,9 +25,17 @@ class MediaViewerScreen extends StatefulWidget {
     required this.task,
     required this.onShare,
     required this.onDelete,
+    this.initialPath,
+    this.startAt,
   });
 
   final DownloadTask task;
+
+  /// The file to show first (from a moment); the first file when null.
+  final String? initialPath;
+
+  /// Where to start playing [initialPath].
+  final Duration? startAt;
 
   /// Shares the file currently shown.
   final void Function(String path) onShare;
@@ -36,12 +48,17 @@ class MediaViewerScreen extends StatefulWidget {
 }
 
 class _MediaViewerScreenState extends State<MediaViewerScreen> {
-  int _index = 0;
+  late int _index = widget.initialPath == null
+      ? 0
+      : widget.task.filePaths.indexOf(widget.initialPath!).clamp(0, 1 << 30);
 
   /// A post with several files opens as a grid; tapping one shows it full
   /// screen, and swiping moves between them.
-  late bool _grid = widget.task.filePaths.length > 1;
-  PageController? _pages;
+  late bool _grid =
+      widget.task.filePaths.length > 1 && widget.initialPath == null;
+  late PageController? _pages = widget.initialPath == null
+      ? null
+      : PageController(initialPage: _index);
 
   List<String> get _files => widget.task.filePaths;
 
@@ -128,6 +145,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                   key: ValueKey(files[index]),
                   path: files[index],
                   title: widget.task.title,
+                  startAt: files[index] == widget.initialPath
+                      ? widget.startAt
+                      : null,
                 ),
               ),
       ),
@@ -264,10 +284,18 @@ class _Missing extends StatelessWidget {
 
 /// Shows one local file: photos zoom, video and audio play.
 class MediaFileView extends StatelessWidget {
-  const MediaFileView({super.key, required this.path, required this.title});
+  const MediaFileView({
+    super.key,
+    required this.path,
+    required this.title,
+    this.startAt,
+  });
 
   final String path;
   final String title;
+
+  /// Where to start playing; from the beginning when null.
+  final Duration? startAt;
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +314,14 @@ class MediaFileView extends StatelessWidget {
         path: path,
         audioOnly: false,
         title: title,
+        startAt: startAt,
       ),
-      SavedFileKind.audio => _Player(path: path, audioOnly: true, title: title),
+      SavedFileKind.audio => _Player(
+        path: path,
+        audioOnly: true,
+        title: title,
+        startAt: startAt,
+      ),
       SavedFileKind.other => Center(
         child: Text(
           tr('This file type can’t be previewed. Use Share to open it.'),
@@ -298,22 +332,24 @@ class MediaFileView extends StatelessWidget {
   }
 }
 
-class _Player extends StatefulWidget {
+class _Player extends ConsumerStatefulWidget {
   const _Player({
     required this.path,
     required this.audioOnly,
     required this.title,
+    this.startAt,
   });
 
   final String path;
   final bool audioOnly;
   final String title;
+  final Duration? startAt;
 
   @override
-  State<_Player> createState() => _PlayerState();
+  ConsumerState<_Player> createState() => _PlayerState();
 }
 
-class _PlayerState extends State<_Player> {
+class _PlayerState extends ConsumerState<_Player> {
   late final VideoPlayerController _controller;
   Object? _error;
 
@@ -324,7 +360,10 @@ class _PlayerState extends State<_Player> {
       ..addListener(_onTick);
     _controller
         .initialize()
-        .then((_) {
+        .then((_) async {
+          if (!mounted) return;
+          final start = widget.startAt;
+          if (start != null) await _controller.seekTo(start);
           if (!mounted) return;
           setState(() {});
           _controller.play();
@@ -438,6 +477,16 @@ class _PlayerState extends State<_Player> {
             padding: const EdgeInsets.fromLTRB(8, 0, 16, 8),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: () => markMoment(
+                    context,
+                    ref,
+                    path: widget.path,
+                    position: _controller.value.position,
+                  ),
+                  tooltip: tr('Mark this moment'),
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                ),
                 IconButton(
                   onPressed: _toggle,
                   iconSize: 32,
